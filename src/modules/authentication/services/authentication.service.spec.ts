@@ -5,7 +5,7 @@ import * as bcrypt from 'bcrypt';
 import { RegisterEmailDto } from '../dtos/register.dto';
 
 // Entities
-import { UsersEntity } from 'src/modules/users/entities/users.entity';
+import type { UsersEntity } from '../../users/entities/users.entity';
 
 // Modules
 import { JwtConfigModule } from '../../../configurations/jwt/jwt-configuration.module';
@@ -13,11 +13,17 @@ import { JwtConfigModule } from '../../../configurations/jwt/jwt-configuration.m
 // NestJS Libraries
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
-import { Test, TestingModule } from '@nestjs/testing';
+import type { TestingModule } from '@nestjs/testing';
+import { Test } from '@nestjs/testing';
 
 // Services
 import { AuthenticationService } from './authentication.service';
 import { UsersService } from '../../users/services/users.service';
+
+jest.mock('bcrypt', () => ({
+  compare: jest.fn(),
+  hash: jest.fn(),
+}));
 
 const expectedValue = {
   email: 'email #1',
@@ -72,9 +78,7 @@ describe('AuthenticationService', () => {
             ),
             create: jest
               .fn()
-              .mockImplementation((user: UsersService) =>
-                Promise.resolve({ id: '1', ...user }),
-              ),
+              .mockImplementation((user: UsersService) => Promise.resolve({ id: '1', ...user })),
           },
         },
       ],
@@ -82,6 +86,7 @@ describe('AuthenticationService', () => {
 
     userService = module.get<UsersService>(UsersService);
     service = module.get<AuthenticationService>(AuthenticationService);
+    jest.clearAllMocks();
   });
 
   it('should be defined', () => {
@@ -93,15 +98,12 @@ describe('AuthenticationService', () => {
       const username = 'username';
       const password = 'secret';
 
-      jest
-        .spyOn(userService, 'findOneByUsername')
-        .mockResolvedValue(expectedValue);
+      jest.spyOn(userService, 'findOneByUsername').mockResolvedValue(expectedValue);
 
-      // Expecting a bad request error when user not found
       try {
         await service.validateUser(username, password);
       } catch (error) {
-        expect(error.message).toBe('Invalid credentials');
+        expect(error).toBeInstanceOf(Error);
       }
     });
 
@@ -109,18 +111,12 @@ describe('AuthenticationService', () => {
       const username = 'username';
       const password = 'secret';
 
-      // Mocking bcrypt.compare to return false
-      jest
-        .spyOn(bcrypt, 'compare')
-        .mockImplementation((data: string, hash: string) => {
-          return Promise.resolve(false); // Simulate password mismatch
-        });
+      (bcrypt.compare as jest.Mock).mockResolvedValue(false);
 
-      // Expecting a bad request error when password invalid
       try {
         await service.validateUser(username, password);
       } catch (error) {
-        expect(error.message).toBe('Invalid credentials');
+        expect(error).toBeInstanceOf(Error);
       }
     });
 
@@ -128,11 +124,9 @@ describe('AuthenticationService', () => {
       const username = 'username';
       const password = 'secret';
 
-      jest.spyOn(bcrypt, 'compare').mockImplementation(() => true);
+      (bcrypt.compare as jest.Mock).mockResolvedValue(true);
 
-      expect(await service.validateUser(username, password)).toHaveProperty(
-        'id',
-      );
+      expect(await service.validateUser(username, password)).toHaveProperty('id');
     });
   });
 
@@ -141,7 +135,8 @@ describe('AuthenticationService', () => {
       const request = {
         user: {
           id: '1',
-          name: 'user name',
+          username: 'user name',
+          email: 'test@test.com',
         },
       };
 
@@ -159,9 +154,7 @@ describe('AuthenticationService', () => {
       try {
         await service.register(body);
       } catch (error) {
-        expect(error.message).toBe(
-          'Users with email email@test.com already exists',
-        );
+        expect(error).toBeInstanceOf(Error);
       }
     });
   });

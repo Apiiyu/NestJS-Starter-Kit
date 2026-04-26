@@ -15,71 +15,52 @@ export class DatabasePostgresConfigService {
    * @description Define getter for get database name
    */
   get databaseName(): string {
-    return (
-      this._configurationService.get<string>('databasePostgres.databaseName') ??
-      'nestjs_boilerplate'
-    );
+    return this._configurationService.getOrThrow<string>('databasePostgres.databaseName');
   }
 
   /**
    * @description Define getter for get database host
    */
   get databaseHost(): string {
-    return (
-      this._configurationService.get<string>('databasePostgres.databaseHost') ??
-      'localhost'
-    );
+    return this._configurationService.getOrThrow<string>('databasePostgres.databaseHost');
   }
 
   /**
    * @description Define getter for get database user
    */
   get databaseUser(): string {
-    return (
-      this._configurationService.get<string>('databasePostgres.databaseUser') ??
-      'root'
-    );
+    return this._configurationService.getOrThrow<string>('databasePostgres.databaseUser');
   }
 
   /**
    * @description Define getter for get database password
    */
   get databasePassword(): string {
-    return (
-      this._configurationService.get<string>(
-        'databasePostgres.databasePassword',
-      ) ?? 'root'
-    );
+    return this._configurationService.getOrThrow<string>('databasePostgres.databasePassword');
   }
 
   /**
    * @description Define getter for get database port
    */
   get databasePort(): number {
-    return (
-      this._configurationService.get<number>('databasePostgres.databasePort') ??
-      5432
-    );
+    return this._configurationService.getOrThrow<number>('databasePostgres.databasePort');
   }
 
   /**
    * @description Define getter for get database sync
    */
-  get databaseSync(): string {
+  get databaseSync(): boolean {
     return (
-      this._configurationService.get<string>('databasePostgres.databaseSync') ??
-      'false'
+      this._configurationService.getOrThrow<string>('databasePostgres.databaseSync') === 'true'
     );
   }
 
   /**
    * @description Define getter for get database logging
    */
-  get databaseLogging(): string {
+  get databaseLogging(): boolean {
     return (
-      this._configurationService.get<string>(
-        'databasePostgres.databaseLogging',
-      ) ?? 'false'
+      this._configurationService.getOrThrow<string>('databasePostgres.databaseLogging') === 'true'
     );
   }
 }

@@ -6,4 +6,11 @@ export default registerAs('app', () => ({
   appEnv: process.env.APP_ENV,
   appPort: process.env.APP_PORT,
   apiExternalBaseUrl: process.env.API_EXTERNAL_BASE_URL,
+  appCorsOrigins: process.env.APP_CORS_ORIGINS,
+  appTrustProxy: process.env.APP_TRUST_PROXY,
+  otelEnabled: process.env.OTEL_ENABLED,
+  otelMetricsEnabled: process.env.OTEL_METRICS_ENABLED,
+  otelExportInterval: process.env.OTEL_EXPORT_INTERVAL,
+  throttleTtl: process.env.THROTTLE_TTL,
+  throttleLimit: process.env.THROTTLE_LIMIT,
 }));

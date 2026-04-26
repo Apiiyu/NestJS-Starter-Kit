@@ -1,5 +1,5 @@
 // Modules
-import { DatabasePostgresConfigModule } from 'src/configurations/database/postgres/postgres-configuration.module';
+import { DatabasePostgresConfigModule } from '../../configurations/database/postgres/postgres-configuration.module';
 
 // NestJS Libraries
 import { TypeOrmModule, TypeOrmModuleAsyncOptions } from '@nestjs/typeorm';
@@ -27,8 +27,8 @@ import { SnakeNamingStrategy } from 'typeorm-naming-strategies';
         entities: [],
         migrations: [],
         subscribers: [],
-        synchronize: pgConfigService.databaseSync === 'true',
-        logging: pgConfigService.databaseLogging === 'true',
+        synchronize: pgConfigService.databaseSync,
+        logging: pgConfigService.databaseLogging,
         namingStrategy: new SnakeNamingStrategy(),
       }),
       inject: [DatabasePostgresConfigService],

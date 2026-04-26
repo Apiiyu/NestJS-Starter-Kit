@@ -15,24 +15,20 @@ export class JwtConfigService {
    * @description Define getter for get jwt secret
    */
   get jwtSecret(): string {
-    return (
-      this._configurationService.get<string>('jwt.jwtSecret') ?? 'jwtSecret'
-    );
+    return this._configurationService.getOrThrow<string>('jwt.jwtSecret');
   }
 
   /**
    * @description Define getter for get jwt exp
    */
   get jwtExp(): string {
-    return this._configurationService.get<string>('jwt.jwtExp') ?? '1d';
+    return this._configurationService.getOrThrow<string>('jwt.jwtExp');
   }
 
   /**
    * @description Define getter for get jwt issuer
    */
   get jwtIssuer(): string {
-    return (
-      this._configurationService.get<string>('jwt.jwtIssuer') ?? 'jwtIssuer'
-    );
+    return this._configurationService.getOrThrow<string>('jwt.jwtIssuer');
   }
 }

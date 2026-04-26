@@ -1,5 +1,11 @@
 // Configurations
-import configuration from './app-configuration';
+import appConfiguration from './app-configuration';
+import postgresConfiguration from '../database/postgres/postgres-configuration';
+import jwtConfiguration from '../jwt/jwt-configuration';
+import redisConfiguration from '../redis/redis-configuration';
+import queueConfiguration from '../queue/queue-configuration';
+import mailConfiguration from '../mail/mail-configuration';
+import { validateEnvironment } from './app-env.validation';
 
 // NestJS Libraries
 import { ConfigModule, ConfigService } from '@nestjs/config';
@@ -16,7 +22,17 @@ import { AppConfigurationsService } from './app-configuration.service';
 @Module({
   imports: [
     ConfigModule.forRoot({
-      load: [configuration],
+      isGlobal: true,
+      cache: true,
+      load: [
+        appConfiguration,
+        postgresConfiguration,
+        jwtConfiguration,
+        redisConfiguration,
+        queueConfiguration,
+        mailConfiguration,
+      ],
+      validate: validateEnvironment,
     }),
   ],
   providers: [ConfigService, AppConfigurationsService],

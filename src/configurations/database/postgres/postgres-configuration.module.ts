@@ -14,11 +14,7 @@ import { DatabasePostgresConfigService } from './postgres-configuration.service'
  * @module
  */
 @Module({
-  imports: [
-    ConfigModule.forRoot({
-      load: [configuration],
-    }),
-  ],
+  imports: [ConfigModule.forFeature(configuration)],
   providers: [ConfigService, DatabasePostgresConfigService],
   exports: [ConfigService, DatabasePostgresConfigService],
 })

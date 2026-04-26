@@ -14,11 +14,7 @@ import { JwtConfigService } from './jwt-configuration.service';
  * @module
  */
 @Module({
-  imports: [
-    ConfigModule.forRoot({
-      load: [configuration],
-    }),
-  ],
+  imports: [ConfigModule.forFeature(configuration)],
   providers: [ConfigService, JwtConfigService],
   exports: [ConfigService, JwtConfigService],
 })
