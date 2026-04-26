@@ -1,6 +1,9 @@
 // Controllers
 import { AuthenticationController } from './controllers/authentication.controller';
 
+// Types
+import type ms from 'ms';
+
 // Modules
 import { JwtConfigModule } from '../../configurations/jwt/jwt-configuration.module';
 import { UsersModule } from '../users/users.module';
@@ -25,10 +28,10 @@ import { LocalStrategy } from '../../common/strategies/local.strategy';
     PassportModule,
     JwtModule.registerAsync({
       imports: [JwtConfigModule],
-      useFactory: async (configService: JwtConfigService) => ({
+      useFactory: (configService: JwtConfigService) => ({
         secret: configService.jwtSecret,
         signOptions: {
-          expiresIn: configService.jwtExp,
+          expiresIn: configService.jwtExp as ms.StringValue,
           issuer: configService.jwtIssuer,
         },
       }),

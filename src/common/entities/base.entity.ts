@@ -5,17 +5,12 @@ import { Exclude } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
 
 // TypeORM
-import {
-  Column,
-  PrimaryGeneratedColumn,
-  BeforeUpdate,
-  BeforeInsert,
-} from 'typeorm';
+import { Column, PrimaryGeneratedColumn, BeforeUpdate, BeforeInsert } from 'typeorm';
 
 export abstract class AppBaseEntity {
   @ApiProperty()
   @PrimaryGeneratedColumn('uuid')
-  public id: string;
+  public id!: string;
 
   /*
    * Create, Update and Delete Date Columns
@@ -27,7 +22,7 @@ export abstract class AppBaseEntity {
     readonly: true,
     nullable: true,
   })
-  public createdAt: number;
+  public createdAt!: number;
 
   @ApiProperty()
   @Column({
@@ -35,7 +30,7 @@ export abstract class AppBaseEntity {
     type: 'varchar',
     nullable: true,
   })
-  public createdBy: string;
+  public createdBy!: string;
 
   @Column({
     name: 'createdById',
@@ -43,7 +38,7 @@ export abstract class AppBaseEntity {
     nullable: true,
   })
   @Exclude()
-  public createdById: string;
+  public createdById!: string;
 
   @ApiProperty()
   @Column({
@@ -51,7 +46,7 @@ export abstract class AppBaseEntity {
     type: 'bigint',
     nullable: true,
   })
-  public updatedAt: number;
+  public updatedAt!: number;
 
   @ApiProperty()
   @Column({
@@ -59,7 +54,7 @@ export abstract class AppBaseEntity {
     type: 'varchar',
     nullable: true,
   })
-  public updatedBy: string;
+  public updatedBy!: string;
 
   @Column({
     name: 'updatedById',
@@ -67,7 +62,7 @@ export abstract class AppBaseEntity {
     nullable: true,
   })
   @Exclude()
-  public updatedById: string;
+  public updatedById!: string;
 
   @ApiProperty()
   @Column({
@@ -75,7 +70,7 @@ export abstract class AppBaseEntity {
     type: 'bigint',
     nullable: true,
   })
-  public deletedAt: number | null;
+  public deletedAt: number | null = null;
 
   @ApiProperty()
   @Column({
@@ -83,7 +78,7 @@ export abstract class AppBaseEntity {
     type: 'varchar',
     nullable: true,
   })
-  public deletedBy: string;
+  public deletedBy!: string;
 
   @Column({
     name: 'deletedById',
@@ -91,19 +86,19 @@ export abstract class AppBaseEntity {
     nullable: true,
   })
   @Exclude()
-  public deletedById: string;
+  public deletedById!: string;
 
   /**
    * Hooks
    */
   @BeforeInsert()
-  public setCreatedAt() {
+  public setCreatedAt(): void {
     this.createdAt = Math.floor(Date.now() / 1000);
     this.updatedAt = Math.floor(Date.now() / 1000);
   }
 
   @BeforeUpdate()
-  public setUpdatedAt() {
+  public setUpdatedAt(): void {
     this.updatedAt = Math.floor(Date.now() / 1000);
   }
 }

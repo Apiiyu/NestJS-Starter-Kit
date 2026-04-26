@@ -1,0 +1,84 @@
+services:
+  app:
+    build:
+      context: .
+      target: builder
+    container_name: nestjs_app
+    restart: unless-stopped
+    ports:
+      - '${APP_PORT:-1337}:1337'
+    environment:
+      APP_NAME: ${APP_NAME:-NestJS Starter Kit}
+      APP_HOST: 0.0.0.0
+      APP_PORT: 1337
+      APP_ENV: ${APP_ENV:-development}
+      DATABASE_HOST: postgres
+      DATABASE_NAME: ${DATABASE_NAME:-nestjs_starter_kit}
+      DATABASE_USER: ${DATABASE_USER:-postgres}
+      DATABASE_PASSWORD: ${DATABASE_PASSWORD:-postgres}
+      DATABASE_PORT: 5432
+      DATABASE_SYNCHRONIZE: ${DATABASE_SYNCHRONIZE:-false}
+      DATABASE_LOGGING: ${DATABASE_LOGGING:-false}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-24h}
+      JWT_ISSUER: ${JWT_ISSUER:-nestjs-starter-kit}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      THROTTLE_TTL: ${THROTTLE_TTL:-60000}
+      THROTTLE_LIMIT: ${THROTTLE_LIMIT:-100}
+    volumes:
+      - ./src:/app/src
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: npm run start:dev
+    networks:
+      - app_network
+
+  postgres:
+    image: postgres:16.4-alpine
+    container_name: nestjs_postgres
+    restart: unless-stopped
+    ports:
+      - '${DATABASE_PORT:-5432}:5432'
+    environment:
+      POSTGRES_DB: ${DATABASE_NAME:-nestjs_starter_kit}
+      POSTGRES_USER: ${DATABASE_USER:-postgres}
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD:-postgres}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          'pg_isready -U ${DATABASE_USER:-postgres} -d ${DATABASE_NAME:-nestjs_starter_kit}',
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app_network
+
+  redis:
+    image: redis:7.4-alpine
+    container_name: nestjs_redis
+    restart: unless-stopped
+    ports:
+      - '${REDIS_PORT:-6379}:6379'
+    command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app_network
+
+volumes:
+  postgres_data:
+
+networks:
+  app_network:
+    driver: bridge

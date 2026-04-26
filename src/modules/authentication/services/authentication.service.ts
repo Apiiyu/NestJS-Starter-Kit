@@ -2,7 +2,7 @@
 import * as bcrypt from 'bcrypt';
 
 // Constants
-import { SALT_OR_ROUND } from '../../../common/constants/common.constant';
+import { BAD_REQUEST_MSG, SALT_OR_ROUND } from '../../../common/constants/common.constant';
 
 // DTOs
 import { RegisterEmailDto } from '../dtos/register.dto';
@@ -30,10 +30,7 @@ export class AuthenticationService {
   /**
    * @description Handle business logic for validating a user
    */
-  public async validateUser(
-    username: string,
-    pass: string,
-  ): Promise<UsersEntity | null> {
+  public async validateUser(username: string, pass: string): Promise<UsersEntity | null> {
     try {
       const user = await this._usersService.findOneByUsername(username);
       const isMatch = await bcrypt.compare(`${pass}`, user!.password);
@@ -46,10 +43,11 @@ export class AuthenticationService {
       }
 
       return user;
-    } catch (error) {
-      throw new BadRequestException('Bad Request', {
+    } catch (error: unknown) {
+      const err = error as { response?: { error?: string }; message?: string };
+      throw new BadRequestException(BAD_REQUEST_MSG, {
         cause: new Error(),
-        description: error.response ? error?.response?.error : error.message,
+        description: err.response?.error ?? err.message,
       });
     }
   }
@@ -58,7 +56,7 @@ export class AuthenticationService {
    * @description Handle business logic for logging in a user
    */
   public async login(user: IRequestUser): Promise<ILogin> {
-    const payload = { username: user.username, sub: user.id };
+    const payload = { email: user.email, sub: user.id, username: user.username };
 
     return {
       accessToken: this._jwtService.sign(payload),
@@ -76,7 +74,7 @@ export class AuthenticationService {
       if (emailExists) {
         throw new BadRequestException(`Bad Request`, {
           cause: new Error(),
-          description: 'Users with email ${email} already exists',
+          description: `Users with email ${email} already exists`,
         });
       }
 
@@ -90,10 +88,11 @@ export class AuthenticationService {
         username,
         password: passwordHashed,
       });
-    } catch (error) {
-      throw new BadRequestException(error.response.message, {
+    } catch (error: unknown) {
+      const err = error as { response?: { message?: string; error?: string }; message?: string };
+      throw new BadRequestException(err.response?.message ?? BAD_REQUEST_MSG, {
         cause: new Error(),
-        description: error.response ? error?.response?.error : error.message,
+        description: err.response?.error ?? err.message,
       });
     }
   }

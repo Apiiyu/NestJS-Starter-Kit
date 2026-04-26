@@ -2,8 +2,9 @@
 import 'dotenv/config';
 
 // TypeORM
-import { DataSource, DataSourceOptions } from 'typeorm';
-import { SeederOptions } from 'typeorm-extension';
+import type { DataSourceOptions } from 'typeorm';
+import { DataSource } from 'typeorm';
+import type { SeederOptions } from 'typeorm-extension';
 
 /**
  * @description Initialize the DataSource with the options.

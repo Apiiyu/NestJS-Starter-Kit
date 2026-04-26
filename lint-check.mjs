@@ -25,10 +25,15 @@ async function runLintCheck() {
     console.error(
       chalk.red('ESLint failed. Please fix the following issues:\n'),
     );
-    console.error(chalk.red(stderr));
+    if (stderr) {
+      console.error(chalk.red(stderr));
+    }
+    if (stdout) {
+      console.error(chalk.red(stdout));
+    }
     console.info(
       chalk.yellow(
-        'If you believe this is a mistake, you can run command npm run lint to automatically fix some issues:\n',
+        'If you believe this is a mistake, you can run command npm run lint:fix to automatically fix some issues:\n',
       ),
     );
     process.exit(1);

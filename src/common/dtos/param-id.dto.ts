@@ -7,5 +7,5 @@ import { ApiProperty } from '@nestjs/swagger';
 export class ParamIdDto {
   @ApiProperty()
   @IsUUID()
-  public id: string;
+  public id!: string;
 }

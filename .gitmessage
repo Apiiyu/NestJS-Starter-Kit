@@ -1,0 +1,94 @@
+## Summary
+- Ticket: `<ticket-number>`
+- Change Type: `<feat|fix|refactor|perf|chore|docs|test|build|ci|revert>`
+- Scope: `<scope>`
+- Short Description:
+  -
+
+## Problem Context / Root Cause
+- Current behavior:
+  -
+- Expected behavior:
+  -
+- Root cause:
+  -
+
+### Changed Areas
+-
+
+## Target Impact Matrix
+
+
+## Detailed Changes
+### 1) What Changed
+- File-level summary:
+  -
+- Behavior-level summary:
+  -
+
+### 2) Why This Approach
+-
+
+### 3) Backward Compatibility
+- [ ] No breaking change expected
+- [ ] Breaking change (explain below)
+
+If breaking change:
+- Affected consumers:
+  -
+- Migration notes:
+  -
+
+## Validation Evidence
+### Automated / Script Validation
+- Commands executed:
+```bash
+# example
+bun <command>
+```
+- Results:
+  -
+
+### Manual Validation
+- Steps:
+  1.
+  2.
+  3.
+- Evidence (logs/screenshots/queries):
+  -
+
+## Risks and Mitigation
+- Risk:
+  -
+- Mitigation:
+  -
+- Monitoring after deploy:
+  -
+
+## Rollback Plan
+- Revert strategy:
+  -
+- Data/config rollback needed:
+  -
+- Rollback validation:
+  -
+
+### Deployment Order
+1.
+2.
+3.
+
+### Consistency Note
+- Confirm both repositories are deployed with matching compatible revisions.
+
+## Conventional Commit Used
+`<type>(<ticket-number>): <message>`
+
+## Pre-Merge Checklist
+- [ ] Commit subject follows Conventional Commit format.
+- [ ] MR description is complete and clear.
+- [ ] Impacted repos are identified correctly.
+- [ ] Impacted targets are listed explicitly.
+- [ ] Risk and rollback plan are documented.
+- [ ] Validation evidence is included.
+- [ ] No credentials/secrets are exposed in this MR.

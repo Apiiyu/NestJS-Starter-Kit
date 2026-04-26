@@ -31,9 +31,12 @@ if (args.length === 0) {
             path.join(modulePath, folderName, `${kebabCaseModuleName}.controller.ts`),
             `import { Controller } from '@nestjs/common'; \n\n@Controller('${kebabCaseModuleName}') \nexport class ${capitalizedModuleName}Controller {}`,
           );
+          fs.writeFileSync(
+            path.join(modulePath, folderName, `${kebabCaseModuleName}.controller.spec.ts`),
+            `import { Test, TestingModule } from '@nestjs/testing';\nimport { ${capitalizedModuleName}Controller } from './${kebabCaseModuleName}.controller';\n\ndescribe('${capitalizedModuleName}Controller', () => {\n  let controller: ${capitalizedModuleName}Controller;\n\n  beforeEach(async () => {\n    const module: TestingModule = await Test.createTestingModule({\n      controllers: [${capitalizedModuleName}Controller],\n    }).compile();\n    controller = module.get<${capitalizedModuleName}Controller>(${capitalizedModuleName}Controller);\n  });\n\n  it('should be defined', () => {\n    expect(controller).toBeDefined();\n  });\n});\n`,
+          );
           break;
         case 'entities':
-          // Create entity file with basic content in it
           fs.writeFileSync(
             path.join(modulePath, folderName, `${kebabCaseModuleName}.entity.ts`),
             `import { AppBaseEntity } from '../../../common/entities/base.entity'; \n\nexport class ${capitalizedModuleName} extends AppBaseEntity {}`,
@@ -46,6 +49,10 @@ if (args.length === 0) {
           fs.writeFileSync(
             path.join(modulePath, folderName, `${kebabCaseModuleName}.service.ts`),
             `import { Injectable } from '@nestjs/common'; \n\n@Injectable() \nexport class ${capitalizedModuleName}Service {}`,
+          );
+          fs.writeFileSync(
+            path.join(modulePath, folderName, `${kebabCaseModuleName}.service.spec.ts`),
+            `import { Test, TestingModule } from '@nestjs/testing';\nimport { ${capitalizedModuleName}Service } from './${kebabCaseModuleName}.service';\n\ndescribe('${capitalizedModuleName}Service', () => {\n  let service: ${capitalizedModuleName}Service;\n\n  beforeEach(async () => {\n    const module: TestingModule = await Test.createTestingModule({\n      providers: [${capitalizedModuleName}Service],\n    }).compile();\n    service = module.get<${capitalizedModuleName}Service>(${capitalizedModuleName}Service);\n  });\n\n  it('should be defined', () => {\n    expect(service).toBeDefined();\n  });\n});\n`,
           );
           break;
         default:

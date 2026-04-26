@@ -13,15 +13,7 @@ import { AuthenticationJWTGuard } from '../../../common/guards/authentication-jw
 import { AuthenticationLocalGuard } from '../../../common/guards/authentication-local.guard';
 
 // NestJS Libraries
-import {
-  Body,
-  Controller,
-  Get,
-  HttpCode,
-  Post,
-  Req,
-  UseGuards,
-} from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Post, Req, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 
 // Services
@@ -43,10 +35,7 @@ export class AuthenticationController {
   })
   @ApiBaseResponse(LoginWithAccessToken)
   @UseGuards(AuthenticationLocalGuard)
-  public async login(
-    @Body() _body: LoginUsernameDto,
-    @Req() req: ICustomRequestHeaders,
-  ) {
+  public async login(@Body() _body: LoginUsernameDto, @Req() req: ICustomRequestHeaders) {
     const result = await this._authenticationService.login(req.user);
 
     return {
@@ -61,7 +50,7 @@ export class AuthenticationController {
   })
   @ApiBaseResponse(UsersEntity)
   public async create(@Body() requestBody: RegisterEmailDto) {
-    const result = this._authenticationService.register(requestBody);
+    const result = await this._authenticationService.register(requestBody);
 
     return {
       message: 'User registered successfully',

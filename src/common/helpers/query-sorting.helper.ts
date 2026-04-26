@@ -1,10 +1,10 @@
-export const QuerySortingHelper = (
-  queryBuilder: any,
+import type { SelectQueryBuilder } from 'typeorm';
+
+export const QuerySortingHelper = <T extends object>(
+  queryBuilder: SelectQueryBuilder<T>,
   sortBy: string[],
   permitColumns: Record<string, string>,
-) => {
-  const builder = queryBuilder;
-
+): SelectQueryBuilder<T> => {
   sortBy.forEach((value) => {
     if (value) {
       const [column, direction] = value.split('|');
@@ -12,11 +12,11 @@ export const QuerySortingHelper = (
         ? `${direction}`.toUpperCase()
         : 'ASC';
 
-      if (permitColumns[column]) {
-        builder.orderBy(permitColumns[column], sortDirection as 'ASC' | 'DESC');
+      if (column && permitColumns[column]) {
+        queryBuilder.orderBy(permitColumns[column], sortDirection as 'ASC' | 'DESC');
       }
     }
   });
 
-  return builder;
+  return queryBuilder;
 };

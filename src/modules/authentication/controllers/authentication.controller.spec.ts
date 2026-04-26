@@ -7,7 +7,8 @@ import { LoginUsernameDto } from '../dtos/login.dto';
 // NestJS Libraries
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
-import { Test, TestingModule } from '@nestjs/testing';
+import type { TestingModule } from '@nestjs/testing';
+import { Test } from '@nestjs/testing';
 
 // Modules
 import { JwtConfigModule } from '../../../configurations/jwt/jwt-configuration.module';
@@ -38,9 +39,7 @@ describe('AuthenticationController', () => {
           useValue: {
             create: jest
               .fn()
-              .mockImplementation((user: UsersService) =>
-                Promise.resolve({ id: '1', ...user }),
-              ),
+              .mockImplementation((user: UsersService) => Promise.resolve({ id: '1', ...user })),
             findAll: jest.fn().mockResolvedValue([
               {
                 email: 'email #1',
@@ -88,11 +87,12 @@ describe('AuthenticationController', () => {
       const request = {
         user: {
           id: '1',
-          name: 'user name',
+          username: 'user name',
+          email: 'test@test.com',
         },
       };
 
-      const response = await controller.login(body, request);
+      const response = await controller.login(body, request as unknown as ICustomRequestHeaders);
 
       expect(response).toHaveProperty('message');
       expect(response).toHaveProperty('result');

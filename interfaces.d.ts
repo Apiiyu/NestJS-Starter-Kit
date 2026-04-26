@@ -10,13 +10,13 @@ declare global {
     username: string;
   }
 
-  interface IResultFilter {
-    data: Record<string, unknown>;
+  interface IResultFilter<T = Record<string, unknown>> {
+    data: T[];
     total: number;
     totalData: number;
   }
 
-  interface IConstructBaseResponse {
+  interface IConstructBaseResponse<T> {
     statusCode: number;
     message: string;
     data: T;
@@ -24,7 +24,6 @@ declare global {
 
   interface IConstructPageMeta {
     page: number;
-    pageCount: number;
     size: number;
     total: number;
     totalData: number;
@@ -36,6 +35,7 @@ declare global {
 
   interface IValidateJWTStrategy {
     sub: string;
-    name: string;
+    username: string;
+    email: string;
   }
 }

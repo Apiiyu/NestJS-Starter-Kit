@@ -1,3 +1,6 @@
+// Constants
+import { BAD_REQUEST_MSG } from '../../../common/constants/common.constant';
+
 // DTOs
 import { CreateUserDto } from '../dtos/create-user.dto';
 import { ListOptionDto } from '../../../common/dtos/list-options.dto';
@@ -12,20 +15,11 @@ import { UsersEntity } from '../entities/users.entity';
 import { QuerySortingHelper } from '../../../common/helpers/query-sorting.helper';
 
 // NestJS Libraries
-import {
-  BadRequestException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 
 // TypeORM
-import {
-  DataSource,
-  EntityManager,
-  Repository,
-  SelectQueryBuilder,
-} from 'typeorm';
+import { DataSource, EntityManager, Repository, SelectQueryBuilder } from 'typeorm';
 
 @Injectable()
 export class UsersService {
@@ -41,17 +35,14 @@ export class UsersService {
    *
    * @returns {void}
    */
-  private _addRelations(query: SelectQueryBuilder<UsersEntity>): void {
+  private _addRelations(_query: SelectQueryBuilder<UsersEntity>): void {
     // ? Add relations here
   }
 
   /**
    * @description Handle business logic for searching users
    */
-  private _searchData(
-    filters: ListOptionDto,
-    query: SelectQueryBuilder<UsersEntity>,
-  ): void {
+  private _searchData(filters: ListOptionDto, query: SelectQueryBuilder<UsersEntity>): void {
     query.andWhere(
       `(
         users.username ILIKE :search OR
@@ -68,10 +59,7 @@ export class UsersService {
   /**
    * @description Handle sorting data
    */
-  private _sortData(
-    filters: ListOptionDto,
-    query: SelectQueryBuilder<UsersEntity>,
-  ): void {
+  private _sortData(filters: ListOptionDto, query: SelectQueryBuilder<UsersEntity>): void {
     const permitSort = {
       username: 'users.username',
       email: 'users.email',
@@ -86,7 +74,7 @@ export class UsersService {
   private async _filterData(
     filters: ListOptionDto,
     query: SelectQueryBuilder<UsersEntity>,
-  ): Promise<IResultFilter> {
+  ): Promise<IResultFilter<UsersEntity>> {
     try {
       this._addRelations(query);
 
@@ -117,10 +105,11 @@ export class UsersService {
         total,
         totalData,
       };
-    } catch (error) {
-      throw new BadRequestException('Bad Request', {
+    } catch (error: unknown) {
+      const err = error as { response?: { error?: string }; message?: string };
+      throw new BadRequestException(BAD_REQUEST_MSG, {
         cause: new Error(),
-        description: error.response ? error?.response?.error : error.message,
+        description: err.response?.error ?? err.message,
       });
     }
   }
@@ -136,13 +125,12 @@ export class UsersService {
       this._usersRepository.merge(model, payload);
 
       // ? Then, we save the model to the database
-      const user = await this._usersRepository.save(model);
-
-      return user;
-    } catch (error) {
-      throw new BadRequestException('Bad Request', {
+      return await this._usersRepository.save(model);
+    } catch (error: unknown) {
+      const err = error as { response?: { error?: string }; message?: string };
+      throw new BadRequestException(BAD_REQUEST_MSG, {
         cause: new Error(),
-        description: error.response ? error?.response?.error : error.message,
+        description: err.response?.error ?? err.message,
       });
     }
   }
@@ -166,10 +154,11 @@ export class UsersService {
           user,
         },
       });
-    } catch (error) {
-      throw new BadRequestException('Bad Request', {
+    } catch (error: unknown) {
+      const err = error as { response?: { error?: string }; message?: string };
+      throw new BadRequestException(BAD_REQUEST_MSG, {
         cause: new Error(),
-        description: error.response ? error?.response?.error : error.message,
+        description: err.response?.error ?? err.message,
       });
     }
   }
@@ -177,9 +166,7 @@ export class UsersService {
   /**
    * @description Handle find all users
    */
-  public async findAll(
-    filters: ListOptionDto,
-  ): Promise<PaginateDto<UsersEntity>> {
+  public async findAll(filters: ListOptionDto): Promise<PaginateDto<UsersEntity>> {
     try {
       const query: SelectQueryBuilder<UsersEntity> =
         this._usersRepository.createQueryBuilder('users');
@@ -187,15 +174,16 @@ export class UsersService {
       const meta = new PageMetaDto({
         totalData,
         total,
-        page: filters.offset,
-        size: filters.disablePaginate ? totalData : filters.limit,
+        page: filters.offset ?? 1,
+        size: filters.disablePaginate ? totalData : (filters.limit ?? 10),
       });
 
       return new PaginateDto<UsersEntity>(data, meta);
-    } catch (error) {
-      throw new BadRequestException('Bad Request', {
+    } catch (error: unknown) {
+      const err = error as { response?: { error?: string }; message?: string };
+      throw new BadRequestException(BAD_REQUEST_MSG, {
         cause: new Error(),
-        description: error.response ? error?.response?.error : error.message,
+        description: err.response?.error ?? err.message,
       });
     }
   }
@@ -218,17 +206,16 @@ export class UsersService {
   /**
    * @description Handle business logic for finding a user by username
    */
-  public async findOneByUsername(
-    username: string,
-  ): Promise<UsersEntity | null> {
+  public async findOneByUsername(username: string): Promise<UsersEntity | null> {
     try {
       return await this._usersRepository.findOne({
         where: { username },
       });
-    } catch (error) {
-      throw new NotFoundException('Not Found', {
+    } catch (error: unknown) {
+      const err = error as { response?: { error?: string }; message?: string };
+      throw new NotFoundException(BAD_REQUEST_MSG, {
         cause: new Error(),
-        description: error.response ? error?.response?.error : error.message,
+        description: err.response?.error ?? err.message,
       });
     }
   }
@@ -266,10 +253,11 @@ export class UsersService {
           user,
         },
       });
-    } catch (error) {
-      throw new BadRequestException('Bad Request', {
+    } catch (error: unknown) {
+      const err = error as { response?: { error?: string }; message?: string };
+      throw new BadRequestException(BAD_REQUEST_MSG, {
         cause: new Error(),
-        description: error.response ? error?.response?.error : error.message,
+        description: err.response?.error ?? err.message,
       });
     }
   }
@@ -302,10 +290,11 @@ export class UsersService {
       });
 
       return this.findOneById(id);
-    } catch (error) {
-      throw new BadRequestException('Bad Request', {
+    } catch (error: unknown) {
+      const err = error as { response?: { error?: string }; message?: string };
+      throw new BadRequestException(BAD_REQUEST_MSG, {
         cause: new Error(),
-        description: error.response ? error?.response?.error : error.message,
+        description: err.response?.error ?? err.message,
       });
     }
   }

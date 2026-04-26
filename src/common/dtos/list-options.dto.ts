@@ -41,7 +41,7 @@ export class ListOptionDto {
 
   @ApiPropertyOptional()
   @IsOptional()
-  public search: string;
+  public search!: string;
 
   @ApiPropertyOptional({
     example: 'createdAt|DESC',

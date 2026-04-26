@@ -1,24 +1,22 @@
-// NestJS LIbraries
-import {
-  ExecutionContext,
-  Injectable,
-  UnauthorizedException,
-} from '@nestjs/common';
+// NestJS Libraries
+import { ExecutionContext, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+
+// RxJS
+import type { Observable } from 'rxjs';
 
 @Injectable()
 export class AuthenticationJWTGuard extends AuthGuard('jwt') {
-  public canActivate(context: ExecutionContext) {
-    // Add your custom authentication logic here
-    // for example, call super.logIn(request) to establish a session.
+  private readonly _logger = new Logger(AuthenticationJWTGuard.name);
+
+  public canActivate(context: ExecutionContext): boolean | Promise<boolean> | Observable<boolean> {
     return super.canActivate(context);
   }
 
-  public handleRequest(error: Error, user: any, info: string) {
-    // You can throw an exception based on either "info" or "err" arguments
-    if (error || !user) {
-      console.log(`[ERROR] AuthenticationJWTGuard: ${info}`);
-      throw error || new UnauthorizedException();
+  public handleRequest<TUser = IRequestUser>(err: unknown, user: TUser, info: string): TUser {
+    if (err ?? !user) {
+      this._logger.warn(`[WARN] AuthenticationJWTGuard: ${info}`);
+      throw (err instanceof Error ? err : null) ?? new UnauthorizedException();
     }
 
     return user;

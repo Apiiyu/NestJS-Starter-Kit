@@ -6,15 +6,15 @@ export class CreateUserDto {
   @IsNotEmpty()
   @IsString()
   @MaxLength(100)
-  public username: string;
+  public username!: string;
 
   @ApiProperty()
   @IsNotEmpty()
   @IsEmail()
   @MaxLength(100)
-  public email: string;
+  public email!: string;
 
   @ApiProperty()
   @IsNotEmpty()
-  public password: string;
+  public password!: string;
 }

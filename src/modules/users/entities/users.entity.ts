@@ -14,13 +14,13 @@ import { Column, Entity } from 'typeorm';
 export class UsersEntity extends AppBaseEntity {
   @ApiProperty()
   @Column({ type: 'varchar', length: 100 })
-  username: string;
+  public username!: string;
 
   @ApiProperty()
   @Column({ type: 'varchar', length: 100 })
-  email: string;
+  public email!: string;
 
   @Exclude()
   @Column({ type: 'varchar', length: 100 })
-  password: string;
+  public password!: string;
 }

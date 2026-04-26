@@ -9,14 +9,14 @@ export class RegisterEmailDto {
   @IsNotEmpty()
   @IsString()
   @MaxLength(100)
-  public username: string;
+  public username!: string;
 
   @ApiProperty()
   @IsNotEmpty()
   @IsEmail()
-  public email: string;
+  public email!: string;
 
   @ApiProperty()
   @IsNotEmpty()
-  public password: string;
+  public password!: string;
 }

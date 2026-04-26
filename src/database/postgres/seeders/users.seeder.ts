@@ -1,6 +1,6 @@
 // TypeORM
-import { DataSource } from 'typeorm';
-import { Seeder } from 'typeorm-extension';
+import type { DataSource } from 'typeorm';
+import type { Seeder } from 'typeorm-extension';
 
 export default class UsersSeeder implements Seeder {
   public async run(dataSource: DataSource): Promise<any> {

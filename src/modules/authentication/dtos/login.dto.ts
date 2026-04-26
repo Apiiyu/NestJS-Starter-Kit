@@ -10,14 +10,14 @@ import { ApiProperty } from '@nestjs/swagger';
 export class LoginUsernameDto {
   @ApiProperty()
   @IsNotEmpty()
-  public username: string;
+  public username!: string;
 
   @ApiProperty()
   @IsNotEmpty()
-  public password: string;
+  public password!: string;
 }
 
 export class LoginWithAccessToken implements ILogin {
   @ApiProperty()
-  public accessToken: string;
+  public accessToken!: string;
 }
