@@ -9,4 +9,5 @@ export default registerAs('databasePostgres', () => ({
   databasePort: process.env.DATABASE_PORT,
   databaseSync: process.env.DATABASE_SYNCHRONIZE,
   databaseLogging: process.env.DATABASE_LOGGING,
+  databaseMigrationsRun: process.env.DATABASE_MIGRATIONS_RUN,
 }));

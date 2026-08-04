@@ -63,4 +63,18 @@ export class DatabasePostgresConfigService {
       this._configurationService.getOrThrow<string>('databasePostgres.databaseLogging') === 'true'
     );
   }
+
+  /**
+   * @description Whether pending migrations run automatically on application boot.
+   *
+   * Optional, and the only getter here using `get` rather than `getOrThrow`: this
+   * variable landed after the starter kit already had users, so demanding it would
+   * break every existing `.env` on upgrade. Absent means `false`, which is also the
+   * right production default — see `postgres-provider.module.ts`.
+   */
+  get databaseMigrationsRun(): boolean {
+    return (
+      this._configurationService.get<string>('databasePostgres.databaseMigrationsRun') === 'true'
+    );
+  }
 }
