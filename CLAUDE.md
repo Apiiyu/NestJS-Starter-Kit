@@ -4,31 +4,38 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Commands
 
+**This project uses bun, not npm.** Always `bun run <script>` — a bare `bun test`
+or `bun build` invokes bun's own runner and bundler instead of the package script.
+
 ```bash
 # Development
-npm run start:dev       # Start with watch mode (also runs lint check)
-npm run start:debug     # Debug mode with watch
+bun run start:dev       # Start with watch mode (also runs lint check)
+bun run start:debug     # Debug mode with watch
 
 # Build & Production
-npm run build           # Compile TypeScript
-npm run start:prod      # Run compiled output
+bun run build           # Compile TypeScript
+bun run start:prod      # Run compiled output
 
 # Testing
-npm test                # Unit tests
-npm run test:watch      # Unit tests in watch mode
-npm run test:cov        # Coverage report
-npm run test:e2e        # E2E tests (./test/jest-e2e.json config)
+bun run test            # Unit tests
+bun run test:watch      # Unit tests in watch mode
+bun run test:cov        # Coverage report (enforces the threshold gate)
+bun run test:e2e        # E2E tests (./test/jest-e2e.json config)
 
 # Code Quality
-npm run lint:fix        # ESLint with auto-fix
-npm run format          # Prettier on src/ and test/
+bun run lint:fix        # ESLint with auto-fix
+bun run format          # Prettier on src/ and test/
 
 # Database
-npm run seed:run        # Run database seeders (TypeORM-extension)
+bun run seed:run        # Run database seeders (TypeORM-extension)
 
 # Scaffolding
-npm run generate:module <name>   # Generate full DDD module skeleton
+bun run generate:module <name>   # Generate full DDD module skeleton
 ```
+
+Requires Node 24 (`.nvmrc` pins 24.11.0) and bun >= 1.2. Node 26 breaks a
+transitive dependency of passport-jwt (`buffer-equal-constant-time` uses the
+removed `SlowBuffer`), so the engines range is deliberately `>=24 <25`.
 
 ## Architecture
 
@@ -82,3 +89,18 @@ Creates: Controller, Service, Entity, DTOs, Interfaces — following the establi
 - Private class properties use underscore prefix: `_propertyName`
 - Keep variable/function/import names alphabetically ordered within their block
 - Before adding a dependency, evaluate: update frequency, community size, open issues, bundle impact
+
+### Tooling Notes
+
+- Tests transform through `@swc/jest`, which does **not** type-check. Type safety
+  comes from the separate `bunx tsc --noEmit` CI job — run it before assuming a
+  green test run means the types are sound.
+- TypeScript stays on 6.x. TS 7.0 ships only the `tsc` binary and drops the
+  programmatic compiler API that `@nestjs/cli` needs, so `nest build` and
+  `nest start` both fail on it. The codebase itself compiles clean under 7.0.2;
+  revisit when the API returns in 7.1.
+- Do not add `incremental: true` to `tsconfig.json`. Combined with nest-cli's
+  `deleteOutDir`, tsc reads a stale `.tsbuildinfo`, skips emit after nest wiped
+  `dist/`, and produces a partial build that still exits 0.
+- The audit columns on `AppBaseEntity` declare explicit camelCase names, so raw
+  SQL must quote them (`users."deletedAt"`), not assume snake_case.
