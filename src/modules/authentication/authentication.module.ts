@@ -9,6 +9,7 @@ import { RefreshTokenEntity } from './entities/refresh-token.entity';
 
 // Modules
 import { JwtConfigModule } from '../../configurations/jwt/jwt-configuration.module';
+import { MailModule } from '../mail/mail.module';
 import { UsersModule } from '../users/users.module';
 
 // NestJS Libraries
@@ -29,6 +30,7 @@ import { LocalStrategy } from '../../common/strategies/local.strategy';
 @Module({
   imports: [
     JwtConfigModule,
+    MailModule,
     UsersModule,
     PassportModule,
     TypeOrmModule.forFeature([RefreshTokenEntity]),

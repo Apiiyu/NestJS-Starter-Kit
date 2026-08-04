@@ -19,19 +19,23 @@ import { UsersEntity } from '../../users/entities/users.entity';
 import type { ILogin, ILogout } from '../interfaces/authentication.interface';
 
 // NestJS Libraries
-import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 
 // Services
 import { RefreshTokenService } from './refresh-token.service';
+import { MailService } from '../../mail/services/mail.service';
 import { UsersService } from '../../users/services/users.service';
 
 @Injectable()
 export class AuthenticationService {
+  private readonly _logger = new Logger(AuthenticationService.name);
+
   constructor(
     private readonly _usersService: UsersService,
     private readonly _jwtService: JwtService,
     private readonly _refreshTokenService: RefreshTokenService,
+    private readonly _mailService: MailService,
   ) {}
 
   /**
@@ -171,10 +175,25 @@ export class AuthenticationService {
      * The old catch-all is gone with it: wrapping every failure in a 400 swallowed
      * those 409s too, along with any genuine 500.
      */
-    return this._usersService.create({
+    const user = await this._usersService.create({
       email,
       username,
       password: passwordHashed,
     });
+
+    /**
+     * Enqueue-and-forget: a queue outage must not fail account creation over an email
+     * that was never going to be more than a courtesy. `sendWelcomeEmail` only enqueues
+     * (D10) — the `.catch` here guards that enqueue call itself, not the actual send.
+     */
+    await this._mailService
+      .sendWelcomeEmail({ email: user.email, username: user.username })
+      .catch((error) => {
+        this._logger.warn(
+          `Failed to enqueue welcome email for user ${user.id}: ${(error as Error).message}`,
+        );
+      });
+
+    return user;
   }
 }

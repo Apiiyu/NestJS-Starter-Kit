@@ -16,6 +16,7 @@ import { JwtConfigModule } from '../../../configurations/jwt/jwt-configuration.m
 // Services
 import { AuthenticationService } from '../services/authentication.service';
 import { RefreshTokenService } from '../services/refresh-token.service';
+import { MailService } from '../../mail/services/mail.service';
 import { UsersService } from '../../users/services/users.service';
 
 describe('AuthenticationController', () => {
@@ -96,6 +97,12 @@ describe('AuthenticationController', () => {
               expiresAt: new Date('2026-08-11T09:15:00.000Z'),
               replacedId: 'refresh-1',
             }),
+          },
+        },
+        {
+          provide: MailService,
+          useValue: {
+            sendWelcomeEmail: jest.fn().mockResolvedValue(undefined),
           },
         },
       ],

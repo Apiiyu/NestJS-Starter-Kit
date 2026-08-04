@@ -26,6 +26,7 @@ import { Test } from '@nestjs/testing';
 // Services
 import { AuthenticationService } from './authentication.service';
 import { RefreshTokenService } from './refresh-token.service';
+import { MailService } from '../../mail/services/mail.service';
 import { UsersService } from '../../users/services/users.service';
 
 jest.mock('bcrypt', () => ({
@@ -76,10 +77,15 @@ const buildRefreshTokenServiceMock = () => ({
   }),
 });
 
+const buildMailServiceMock = () => ({
+  sendWelcomeEmail: jest.fn().mockResolvedValue(undefined),
+});
+
 describe('AuthenticationService', () => {
   let service: AuthenticationService;
   let userService: UsersService;
   let refreshTokenService: ReturnType<typeof buildRefreshTokenServiceMock>;
+  let mailService: ReturnType<typeof buildMailServiceMock>;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -127,11 +133,16 @@ describe('AuthenticationService', () => {
           provide: RefreshTokenService,
           useValue: buildRefreshTokenServiceMock(),
         },
+        {
+          provide: MailService,
+          useValue: buildMailServiceMock(),
+        },
       ],
     }).compile();
 
     userService = module.get<UsersService>(UsersService);
     refreshTokenService = module.get(RefreshTokenService);
+    mailService = module.get(MailService);
     service = module.get<AuthenticationService>(AuthenticationService);
     jest.clearAllMocks();
   });
@@ -271,6 +282,28 @@ describe('AuthenticationService', () => {
       jest.spyOn(userService, 'create').mockRejectedValue(conflict);
 
       await expect(service.register(buildBody())).rejects.toBe(conflict);
+    });
+
+    it('should enqueue a welcome email for the newly created user', async () => {
+      (bcrypt.hash as jest.Mock).mockResolvedValue('hashed-secret');
+
+      await service.register(buildBody());
+
+      expect(mailService.sendWelcomeEmail).toHaveBeenCalledWith({
+        email: 'email@test.com',
+        username: 'user name',
+      });
+    });
+
+    /**
+     * A down queue must not turn into a failed registration — the account was already
+     * created by the time the enqueue is attempted.
+     */
+    it('should not fail registration when enqueueing the welcome email rejects', async () => {
+      (bcrypt.hash as jest.Mock).mockResolvedValue('hashed-secret');
+      mailService.sendWelcomeEmail.mockRejectedValue(new Error('queue unreachable'));
+
+      await expect(service.register(buildBody())).resolves.toHaveProperty('id');
     });
   });
 
