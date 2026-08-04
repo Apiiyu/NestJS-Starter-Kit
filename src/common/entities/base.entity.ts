@@ -19,7 +19,7 @@ export abstract class AppBaseEntity {
   @Column({
     name: 'createdAt',
     type: 'bigint',
-    readonly: true,
+    update: false,
     nullable: true,
   })
   public createdAt!: number;

@@ -17,4 +17,8 @@ export class RedisConfigService {
   get redisPassword(): string {
     return this._configService.get<string>('redis.password') ?? '';
   }
+
+  get redisUsername(): string {
+    return this._configService.get<string>('redis.username') ?? '';
+  }
 }
