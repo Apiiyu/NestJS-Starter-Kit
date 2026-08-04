@@ -5,6 +5,7 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 
 import { ERROR_CODE } from '../../../common/constants/error-code.constant';
+import { USER_ROLE } from '../../../common/constants/role.constant';
 import { ListOptionDto } from '../../../common/dtos/list-options.dto';
 import { PG_UNIQUE_VIOLATION } from '../../../common/helpers/postgres-error.helper';
 import { USERS_UNIQUE_INDEX, UsersEntity } from '../entities/users.entity';
@@ -194,7 +195,12 @@ describe('UsersService', () => {
       mockRepo.findOne.mockResolvedValue(mockUser);
       mockRepo.save.mockResolvedValue({ ...mockUser, deletedAt });
 
-      const requestUser: IRequestUser = { id: 'admin', email: 'a@a.com', username: 'admin' };
+      const requestUser: IRequestUser = {
+        id: 'admin',
+        email: 'a@a.com',
+        username: 'admin',
+        role: USER_ROLE.ADMIN,
+      };
       const result = await service.delete('uuid-1', requestUser);
 
       // Assert on what the service actually wrote, not on the canned save() result —
@@ -215,7 +221,12 @@ describe('UsersService', () => {
       });
       mockRepo.save.mockResolvedValue({ ...mockUser, deletedAt: null });
 
-      const requestUser: IRequestUser = { id: 'admin', email: 'a@a.com', username: 'admin' };
+      const requestUser: IRequestUser = {
+        id: 'admin',
+        email: 'a@a.com',
+        username: 'admin',
+        role: USER_ROLE.ADMIN,
+      };
       const result = await service.restore('uuid-1', requestUser);
       expect(result.deletedAt).toBeNull();
     });
@@ -227,7 +238,12 @@ describe('UsersService', () => {
       });
       mockRepo.save.mockResolvedValue({ ...mockUser, deletedAt: null });
 
-      const requestUser: IRequestUser = { id: 'admin', email: 'a@a.com', username: 'admin' };
+      const requestUser: IRequestUser = {
+        id: 'admin',
+        email: 'a@a.com',
+        username: 'admin',
+        role: USER_ROLE.ADMIN,
+      };
       await service.restore('uuid-1', requestUser);
 
       expect(mockRepo.findOne).toHaveBeenCalledWith(expect.objectContaining({ withDeleted: true }));
@@ -246,7 +262,12 @@ describe('UsersService', () => {
       });
       mockRepo.save.mockRejectedValue(uniqueViolation(USERS_UNIQUE_INDEX.EMAIL));
 
-      const requestUser: IRequestUser = { id: 'admin', email: 'a@a.com', username: 'admin' };
+      const requestUser: IRequestUser = {
+        id: 'admin',
+        email: 'a@a.com',
+        username: 'admin',
+        role: USER_ROLE.ADMIN,
+      };
       const error = await rejection(service.restore('uuid-1', requestUser));
 
       expect(error).toBeInstanceOf(ConflictException);

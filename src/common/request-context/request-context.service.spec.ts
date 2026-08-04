@@ -1,3 +1,4 @@
+import { USER_ROLE } from '../constants/role.constant';
 import { RequestContextService } from './request-context.service';
 
 describe('RequestContextService', () => {
@@ -29,6 +30,7 @@ describe('RequestContextService', () => {
     const user: IRequestUser = {
       email: 'test@example.com',
       id: 'user-1',
+      role: USER_ROLE.USER,
       username: 'tester',
     };
 

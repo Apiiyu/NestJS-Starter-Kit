@@ -1,8 +1,14 @@
 // Class Transformer
 import { Exclude } from 'class-transformer';
 
+// Constants
+import { USER_ROLE, USER_ROLES } from '../../../common/constants/role.constant';
+
 // Entities
 import { AppBaseEntity } from '../../../common/entities/base.entity';
+
+// Types
+import type { UserRole } from '../../../common/constants/role.constant';
 
 // NestJS Libraries
 import { ApiProperty } from '@nestjs/swagger';
@@ -43,4 +49,22 @@ export class UsersEntity extends AppBaseEntity {
   @Exclude()
   @Column({ type: 'varchar', length: 100 })
   public password!: string;
+
+  /**
+   * Stored as a native Postgres enum rather than a varchar with a CHECK constraint, so
+   * the database rejects an unknown role outright instead of trusting the application
+   * to have validated it.
+   *
+   * `enumName` is pinned because TypeORM would otherwise derive `users_role_enum` from
+   * the table and column names — a name the migration would have to guess at, and one
+   * that silently changes if the column is ever renamed.
+   */
+  @ApiProperty({ enum: USER_ROLES, example: USER_ROLE.USER })
+  @Column({
+    type: 'enum',
+    enum: USER_ROLES,
+    enumName: 'user_role_enum',
+    default: USER_ROLE.USER,
+  })
+  public role!: UserRole;
 }

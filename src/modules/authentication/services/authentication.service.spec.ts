@@ -4,6 +4,8 @@ import * as bcrypt from 'bcrypt';
 // Constants
 import { ERROR_CODE } from '../../../common/constants/error-code.constant';
 import { SALT_OR_ROUND } from '../../../common/constants/common.constant';
+import { TOKEN_TYPE } from '../../../common/constants/token.constant';
+import { USER_ROLE } from '../../../common/constants/role.constant';
 
 // DTOs
 import { RegisterEmailDto } from '../dtos/register.dto';
@@ -136,16 +138,47 @@ describe('AuthenticationService', () => {
   });
 
   describe('login', () => {
-    it('should return a accessToken', async () => {
-      const request = {
-        user: {
-          id: '1',
-          username: 'user name',
-          email: 'test@test.com',
-        },
-      };
+    const requestUser: IRequestUser = {
+      id: '1',
+      username: 'user name',
+      email: 'test@test.com',
+      role: USER_ROLE.USER,
+    };
 
-      expect(await service.login(request.user)).toHaveProperty('accessToken');
+    /** Read the claim set back off the wire rather than trusting the input object. */
+    const decodeClaims = (accessToken: string): Record<string, unknown> =>
+      JSON.parse(Buffer.from(accessToken.split('.')[1], 'base64url').toString()) as Record<
+        string,
+        unknown
+      >;
+
+    it('should return a accessToken', async () => {
+      expect(await service.login(requestUser)).toHaveProperty('accessToken');
+    });
+
+    it('should stamp sub, type and role into the token', async () => {
+      const { accessToken } = await service.login(requestUser);
+
+      expect(decodeClaims(accessToken)).toMatchObject({
+        email: 'test@test.com',
+        role: USER_ROLE.USER,
+        sub: '1',
+        type: TOKEN_TYPE.ACCESS,
+        username: 'user name',
+      });
+    });
+
+    /**
+     * A token with no `jti` cannot be named, and a token that cannot be named cannot
+     * be revoked — logout would leave a working credential in the wild until it
+     * expired on its own. Two logins must therefore never share an id.
+     */
+    it('should give every login its own jti', async () => {
+      const first = decodeClaims((await service.login(requestUser)).accessToken);
+      const second = decodeClaims((await service.login(requestUser)).accessToken);
+
+      expect(first.jti).toEqual(expect.any(String));
+      expect(second.jti).not.toBe(first.jti);
     });
   });
 

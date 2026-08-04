@@ -40,6 +40,18 @@ export const ERROR_CODE = {
   USER_EMAIL_TAKEN: 'USER_EMAIL_TAKEN',
   USER_RESTORE_CONFLICT: 'USER_RESTORE_CONFLICT',
   USER_USERNAME_TAKEN: 'USER_USERNAME_TAKEN',
+
+  /**
+   * Authentication domain. All 401s, and all three exist because the client's next
+   * move differs: `EXPIRED` means "refresh and retry, silently"; `INVALID` means
+   * "this credential is junk, send the user to log in"; `WRONG_TYPE` means "you sent
+   * a refresh token to an endpoint that wants an access token", which is a bug in the
+   * caller, not a session problem. Collapsing them into a bare 401 forces clients to
+   * guess, and the usual guess is a logout loop.
+   */
+  AUTH_TOKEN_EXPIRED: 'AUTH_TOKEN_EXPIRED',
+  AUTH_TOKEN_INVALID: 'AUTH_TOKEN_INVALID',
+  AUTH_TOKEN_WRONG_TYPE: 'AUTH_TOKEN_WRONG_TYPE',
 } as const;
 
 export type ErrorCode = (typeof ERROR_CODE)[keyof typeof ERROR_CODE];

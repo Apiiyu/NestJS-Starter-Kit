@@ -3,6 +3,10 @@ import * as bcrypt from 'bcrypt';
 
 // Constants
 import { BAD_REQUEST_MSG, SALT_OR_ROUND } from '../../../common/constants/common.constant';
+import { TOKEN_TYPE } from '../../../common/constants/token.constant';
+
+// Crypto
+import { randomUUID } from 'node:crypto';
 
 // DTOs
 import { RegisterEmailDto } from '../dtos/register.dto';
@@ -56,7 +60,29 @@ export class AuthenticationService {
    * @description Handle business logic for logging in a user
    */
   public async login(user: IRequestUser): Promise<ILogin> {
-    const payload = { email: user.email, sub: user.id, username: user.username };
+    /**
+     * `jti` and `type` are not decoration.
+     *
+     * Without `jti` a token cannot be named, and anything that cannot be named cannot
+     * be revoked — logout would be a client-side gesture that leaves a valid
+     * credential in the wild until it expires on its own.
+     *
+     * Without `type`, a refresh token is indistinguishable from an access token: both
+     * are signed with the same secret, so the long-lived one verifies as the
+     * short-lived one and the 15-minute access TTL buys nothing.
+     *
+     * `role` is embedded so authorisation does not need a database round trip per
+     * request. The cost is bounded staleness — a role change takes effect for that
+     * user when their access token next rotates, which is why the access TTL is short.
+     */
+    const payload: IValidateJWTStrategy = {
+      email: user.email,
+      jti: randomUUID(),
+      role: user.role,
+      sub: user.id,
+      type: TOKEN_TYPE.ACCESS,
+      username: user.username,
+    };
 
     return {
       accessToken: this._jwtService.sign(payload),
