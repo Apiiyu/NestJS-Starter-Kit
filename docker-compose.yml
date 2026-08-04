@@ -1,9 +1,13 @@
+# No service declares `container_name`. A pinned name is global to the Docker
+# daemon, so it collides with any other project that picked the same one — an
+# unrelated `nestjs_redis` from a different repo is enough to make `dev:up` fail
+# with "container name is already in use". Without it Compose scopes names to the
+# project (`nestjs-starter-kit-postgres-1`), and two checkouts can run at once.
 services:
   app:
     build:
       context: .
       target: builder
-    container_name: nestjs_app
     restart: unless-stopped
     ports:
       - '${APP_PORT:-1337}:1337'
@@ -39,8 +43,11 @@ services:
       - app_network
 
   postgres:
-    image: postgres:16.4-alpine
-    container_name: nestjs_postgres
+    # Major-version bump from 16.4. PostgreSQL refuses to start on a data
+    # directory written by an older major: `FATAL: database files are
+    # incompatible with server`. An existing `<project>_postgres_data` volume
+    # must be dropped (or pg_upgrade'd) before this comes up — see README.
+    image: postgres:17-alpine
     restart: unless-stopped
     ports:
       - '${DATABASE_PORT:-5432}:5432'
@@ -64,7 +71,6 @@ services:
 
   redis:
     image: redis:7.4-alpine
-    container_name: nestjs_redis
     restart: unless-stopped
     ports:
       - '${REDIS_PORT:-6379}:6379'

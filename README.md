@@ -183,6 +183,59 @@ You must change the .env.example to .env and match it with you local machine.
 bun start:dev
 ```
 
+### 🐳 Local Services (Docker)
+
+`bun run dev:up` starts only the backing services — PostgreSQL 17 and Redis 7 — and
+leaves the app itself on your host so `start:dev` keeps its watch mode and debugger.
+The `app` service in `docker-compose.yml` is there for a fully containerised run
+(`docker compose up`) and is not needed for day-to-day development.
+
+```shell
+bun run dev:up      # start postgres + redis in the background
+bun run dev:logs    # tail their logs
+bun run dev:down    # stop them, keep the data
+bun run dev:reset   # stop them and DELETE the postgres volume
+```
+
+Both containers publish on the ports from your `.env` (`DATABASE_PORT`, `REDIS_PORT`),
+so the default `.env.example` values work unchanged. Once they report healthy, apply
+the schema with `bun run migration:run`.
+
+> **Port already in use?** If you already run PostgreSQL or Redis natively (Homebrew,
+> Postgres.app, another project's stack), `dev:up` fails with `ports are not available:
+... address already in use`. Pick free host ports in `.env` — for example
+> `DATABASE_PORT=55432` and `REDIS_PORT=56379`. The same variables configure the app's
+> own connection, so it follows the containers automatically; only the host-side port
+> changes, and the containers keep listening on 5432/6379 internally.
+>
+> Note that `lsof -i :5432` can come back empty even when the port is taken, because it
+> hides sockets owned by other users (a native Postgres runs as the `postgres` user).
+> `netstat -an -p tcp | grep 5432` is the reliable check.
+
+> **`$` in a password, and `.env.local`.** Two parsers read your environment and they do
+> not agree. `docker compose` reads **only `.env`**; `bun` reads `.env` and then lets
+> `.env.local` override it. So a stale `.env.local` silently points the app at a different
+> port than the one Compose published, and the failure surfaces as
+> `password authentication failed` against whatever else is listening there.
+>
+> On top of that, bun expands `$` inside `.env` values — in **every** quoting style. A
+> password of `IT24680@$^*)` arrives as `IT24680@^*)` whether you write it bare, in single
+> quotes, or in double quotes. Only a backslash escape survives, and Compose reads that
+> same spelling correctly:
+>
+> ```shell
+> DATABASE_PASSWORD="IT24680@\$^*)"   # the only form both parsers agree on
+> ```
+>
+> Verify with `bun -e 'console.log(process.env.DATABASE_PASSWORD)'` rather than trusting
+> the file — that one command would have caught both problems immediately.
+
+> **Upgrading from an older checkout:** the Postgres image moved from `16.4-alpine` to
+> `17-alpine`. Postgres will not start on a data directory written by an older major —
+> it exits with `FATAL: database files are incompatible with server`. If you already ran
+> the previous compose file, drop the volume first with `bun run dev:reset` (this
+> destroys local data) or migrate it with `pg_upgrade`.
+
 ---
 
 ## 🎉 Build The App

@@ -13,6 +13,10 @@
   "scripts": {
     "build": "nest build",
     "commitizen": "cz",
+    "dev:down": "docker compose down",
+    "dev:logs": "docker compose logs -f postgres redis",
+    "dev:reset": "docker compose down -v",
+    "dev:up": "docker compose up -d postgres redis",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "generate:module": "bun generate-module.mjs",
     "seed:run": "bunx typeorm-extension seed:run -d ./src/database/postgres/postgres-data-source.ts",
