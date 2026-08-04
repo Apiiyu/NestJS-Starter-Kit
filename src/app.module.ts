@@ -4,8 +4,11 @@ import { ContextInterceptor } from './common/interceptors/context.interceptor';
 import { AppConfigurationModule } from './configurations/app/app-configuration.module';
 import { DatabasePostgresConfigModule } from './configurations/database/postgres/postgres-configuration.module';
 
+// Filters
+import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
+
 // Guards
-import { APP_GUARD } from '@nestjs/core';
+import { APP_FILTER, APP_GUARD } from '@nestjs/core';
 
 // Health
 import { HealthModule } from './configurations/health/health.module';
@@ -54,6 +57,15 @@ import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
     UsersModule,
   ],
   providers: [
+    /**
+     * Registered through the DI container rather than `app.useGlobalFilters()` in
+     * `main.ts`, because the filter injects `RequestContextService` to stamp the
+     * request id onto error bodies — a manually constructed filter gets no injector.
+     */
+    {
+      provide: APP_FILTER,
+      useClass: AllExceptionsFilter,
+    },
     {
       provide: APP_GUARD,
       useClass: ThrottlerGuard,
