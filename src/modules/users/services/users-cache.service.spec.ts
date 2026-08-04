@@ -59,6 +59,43 @@ describe('UsersCacheService', () => {
     });
   });
 
+  /**
+   * The `cache:` block this replaced set `ignoreErrors: true` specifically so a Redis
+   * outage could never take the database read path down with it. These pin the same
+   * guarantee on the new named-key cache.
+   */
+  describe('fail-open on cache errors', () => {
+    it('get resolves undefined instead of throwing', async () => {
+      mockCache.get.mockRejectedValueOnce(new Error('redis down'));
+
+      await expect(service.get('users:id:1:false')).resolves.toBeUndefined();
+    });
+
+    it('set resolves instead of throwing', async () => {
+      mockCache.set.mockRejectedValueOnce(new Error('redis down'));
+
+      await expect(service.set('users:id:1:false', {})).resolves.toBeUndefined();
+    });
+
+    it('setList resolves instead of throwing', async () => {
+      mockCache.set.mockRejectedValueOnce(new Error('redis down'));
+
+      await expect(service.setList('users:list:abc', { data: [] })).resolves.toBeUndefined();
+    });
+
+    it('invalidateUser resolves instead of throwing', async () => {
+      mockCache.mdel.mockRejectedValueOnce(new Error('redis down'));
+
+      await expect(service.invalidateUser(['users:id:1:false'])).resolves.toBeUndefined();
+    });
+
+    it('invalidateLists resolves instead of throwing', async () => {
+      mockCache.get.mockRejectedValueOnce(new Error('redis down'));
+
+      await expect(service.invalidateLists()).resolves.toBeUndefined();
+    });
+  });
+
   describe('invalidateLists', () => {
     it('deletes every indexed list key plus the index itself', async () => {
       mockCache.get.mockResolvedValueOnce(['users:list:a', 'users:list:b']);

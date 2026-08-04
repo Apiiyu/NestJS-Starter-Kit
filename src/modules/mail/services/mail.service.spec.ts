@@ -13,9 +13,10 @@ describe('MailService', () => {
   it('enqueues a welcome email job instead of sending directly', async () => {
     await service.sendWelcomeEmail({ email: 'user@example.com', username: 'user' });
 
-    expect(mockQueue.add).toHaveBeenCalledWith(MAIL_JOB.WELCOME, {
-      email: 'user@example.com',
-      username: 'user',
-    });
+    expect(mockQueue.add).toHaveBeenCalledWith(
+      MAIL_JOB.WELCOME,
+      { email: 'user@example.com', username: 'user' },
+      expect.objectContaining({ attempts: 3 }),
+    );
   });
 });

@@ -4,7 +4,7 @@ import { createHash } from 'node:crypto';
 // NestJS Libraries
 import type { Cache } from '@nestjs/cache-manager';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 
 const LIST_INDEX_KEY = 'users:list:index';
 const LIST_TTL_MS = 60_000;
@@ -20,9 +20,16 @@ const LIST_TTL_MS = 60_000;
  * instant could race and one addition could be lost. Worst case is one stale filter
  * variant surviving up to `LIST_TTL_MS`, which self-heals — an acceptable trade for
  * avoiding a second moving part (e.g. a Lua script) in a starter kit.
+ *
+ * Every Redis-touching method is fail-open: a cache outage logs a warning and falls
+ * through to a safe default (a miss, or a no-op write) rather than throwing. The
+ * `cache:` block this replaced set `ignoreErrors: true` for exactly this reason — Redis
+ * being down must never take the database read path down with it.
  */
 @Injectable()
 export class UsersCacheService {
+  private readonly _logger = new Logger(UsersCacheService.name);
+
   constructor(@Inject(CACHE_MANAGER) private readonly _cache: Cache) {}
 
   public listKey(filters: Record<string, unknown>): string {
@@ -49,34 +56,58 @@ export class UsersCacheService {
   }
 
   public async get<T>(key: string): Promise<T | undefined> {
-    return this._cache.get<T>(key);
+    try {
+      return await this._cache.get<T>(key);
+    } catch (error: unknown) {
+      this._logger.warn(`Cache get failed for "${key}": ${(error as Error).message}`);
+
+      return undefined;
+    }
   }
 
   public async set<T>(key: string, value: T): Promise<void> {
-    await this._cache.set(key, value, LIST_TTL_MS);
+    try {
+      await this._cache.set(key, value, LIST_TTL_MS);
+    } catch (error: unknown) {
+      this._logger.warn(`Cache set failed for "${key}": ${(error as Error).message}`);
+    }
   }
 
   public async setList<T>(key: string, value: T): Promise<void> {
-    await this.set(key, value);
+    try {
+      await this._cache.set(key, value, LIST_TTL_MS);
 
-    const index = (await this._cache.get<string[]>(LIST_INDEX_KEY)) ?? [];
+      const index = (await this._cache.get<string[]>(LIST_INDEX_KEY)) ?? [];
 
-    if (!index.includes(key)) {
-      await this._cache.set(LIST_INDEX_KEY, [...index, key]);
+      if (!index.includes(key)) {
+        await this._cache.set(LIST_INDEX_KEY, [...index, key]);
+      }
+    } catch (error: unknown) {
+      this._logger.warn(`Cache setList failed for "${key}": ${(error as Error).message}`);
     }
   }
 
   public async invalidateUser(keys: Array<string | null | undefined>): Promise<void> {
     const targets = keys.filter((key): key is string => Boolean(key));
 
-    if (targets.length) {
+    if (!targets.length) {
+      return;
+    }
+
+    try {
       await this._cache.mdel(targets);
+    } catch (error: unknown) {
+      this._logger.warn(`Cache invalidateUser failed: ${(error as Error).message}`);
     }
   }
 
   public async invalidateLists(): Promise<void> {
-    const index = (await this._cache.get<string[]>(LIST_INDEX_KEY)) ?? [];
+    try {
+      const index = (await this._cache.get<string[]>(LIST_INDEX_KEY)) ?? [];
 
-    await this._cache.mdel([...index, LIST_INDEX_KEY]);
+      await this._cache.mdel([...index, LIST_INDEX_KEY]);
+    } catch (error: unknown) {
+      this._logger.warn(`Cache invalidateLists failed: ${(error as Error).message}`);
+    }
   }
 }
