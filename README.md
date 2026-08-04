@@ -190,7 +190,7 @@ bun start:dev
 1. Build the app
 
 ```shell
-bun build
+bun run build
 ```
 
 ## 🧪 Test
@@ -198,8 +198,30 @@ bun build
 Run test across all files
 
 ```shell
-bun test:unit
+bun run test:unit
 ```
+
+### Coverage baseline
+
+Coverage is measured against **business logic only**. Infrastructure glue is excluded
+from `collectCoverageFrom` (`configurations/`, `database/`, `strategies/`, `guards/`,
+`*.decorator.ts`, `instrumentation.ts`) because those files are thin wrappers whose
+correctness is proven by the app booting, not by unit tests.
+
+Baseline as of the bun migration (33 tests, 6 suites):
+
+| Metric     | Achieved | Threshold |
+| ---------- | -------- | --------- |
+| Statements | 69.65%   | 64%       |
+| Branches   | 44.87%   | 39%       |
+| Functions  | 72.97%   | 67%       |
+| Lines      | 70.10%   | 65%       |
+
+Thresholds sit ~5% under the achieved numbers so CI fails on regression, not on noise.
+**Ratchet them up whenever you add tests** — the gate should only ever move forward.
+
+Largest gaps worth closing first: `context.interceptor.ts` and
+`request-context.middleware.ts` (both 0%), and `users.controller.ts` (0%).
 
 ---
 
