@@ -33,7 +33,7 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-    command: npm run start:dev
+    command: bun run start:dev
     networks:
       - app_network
 

@@ -10,7 +10,7 @@
     "lib": ["ES2022"],
     "sourceMap": true,
     "outDir": "./dist",
-    "rootDir": "./",
+    "rootDir": "./src",
     "baseUrl": "./",
     "paths": {
       "src/*": ["src/*"]

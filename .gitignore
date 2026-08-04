@@ -2,6 +2,13 @@
 /dist
 /node_modules
 /build
+*.tsbuildinfo
+
+# Stray directory created by tooling that failed to expand ${HOME}
+${HOME}/
+
+# Local working docs (review/implementation plans)
+Plans/
 
 # Logs
 logs

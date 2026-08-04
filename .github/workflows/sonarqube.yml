@@ -8,17 +8,20 @@ jobs:
   sonar:
     name: SonarQube Analysis
     runs-on: ubuntu-latest
+    # Skip cleanly when SonarQube is not configured for this repo, instead of
+    # failing the whole workflow on a missing SONAR_TOKEN.
+    # Enable by setting the repository variable SONAR_ENABLED to "true".
+    if: ${{ vars.SONAR_ENABLED == 'true' }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
-      - uses: actions/setup-node@v4
+      - uses: oven-sh/setup-bun@v2
         with:
-          node-version: 24
-          cache: npm
-      - run: npm ci
-      - run: npm run test:cov
-      - uses: SonarSource/sonarqube-scan-action@v3
+          bun-version: latest
+      - run: bun install --frozen-lockfile
+      - run: bun run test:cov
+      - uses: SonarSource/sonarqube-scan-action@v6
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}

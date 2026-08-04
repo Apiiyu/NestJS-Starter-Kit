@@ -19,7 +19,7 @@ async function runLintCheck() {
     console.log(chalk.blue('Running ESLint...'));
 
     // Run ESLint
-    await runCommand('npx eslint ./src');
+    await runCommand('bunx eslint ./src');
     console.log(chalk.green('ESLint passed successfully!'));
   } catch ({ stdout, stderr }) {
     console.error(
@@ -33,7 +33,7 @@ async function runLintCheck() {
     }
     console.info(
       chalk.yellow(
-        'If you believe this is a mistake, you can run command npm run lint:fix to automatically fix some issues:\n',
+        'If you believe this is a mistake, you can run command bun run lint:fix to automatically fix some issues:\n',
       ),
     );
     process.exit(1);
