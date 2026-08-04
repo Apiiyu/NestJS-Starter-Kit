@@ -31,4 +31,11 @@ export class JwtConfigService {
   get jwtIssuer(): string {
     return this._configurationService.getOrThrow<string>('jwt.jwtIssuer');
   }
+
+  /**
+   * @description Define getter for get refresh token lifetime
+   */
+  get jwtRefreshExp(): string {
+    return this._configurationService.getOrThrow<string>('jwt.jwtRefreshExp');
+  }
 }

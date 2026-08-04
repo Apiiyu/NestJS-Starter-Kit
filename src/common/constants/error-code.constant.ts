@@ -52,6 +52,16 @@ export const ERROR_CODE = {
   AUTH_TOKEN_EXPIRED: 'AUTH_TOKEN_EXPIRED',
   AUTH_TOKEN_INVALID: 'AUTH_TOKEN_INVALID',
   AUTH_TOKEN_WRONG_TYPE: 'AUTH_TOKEN_WRONG_TYPE',
+
+  /**
+   * Refresh flow. `AUTH_REFRESH_REUSED` is the one that matters: it means a token that
+   * had already been spent was presented again, which is the signature of a stolen
+   * token being replayed. The whole family is revoked when it fires, so the client
+   * must treat it as a hard logout — retrying or refreshing again will not help.
+   */
+  AUTH_REFRESH_EXPIRED: 'AUTH_REFRESH_EXPIRED',
+  AUTH_REFRESH_INVALID: 'AUTH_REFRESH_INVALID',
+  AUTH_REFRESH_REUSED: 'AUTH_REFRESH_REUSED',
 } as const;
 
 export type ErrorCode = (typeof ERROR_CODE)[keyof typeof ERROR_CODE];
