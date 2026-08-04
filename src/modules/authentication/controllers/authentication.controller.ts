@@ -2,7 +2,7 @@
 import { ApiBaseResponse } from '../../../common/decorators/api-base-response.decorator';
 
 // DTOs
-import { LoginUsernameDto, LoginWithAccessToken } from '../dtos/login.dto';
+import { LoginUsernameDto, LoginWithAccessToken, RefreshTokenDto } from '../dtos/login.dto';
 import { RegisterEmailDto } from '../dtos/register.dto';
 
 // Entities
@@ -54,6 +54,46 @@ export class AuthenticationController {
 
     return {
       message: 'User registered successfully',
+      result,
+    };
+  }
+
+  /**
+   * Unguarded on purpose. The refresh token *is* the credential, and requiring a live
+   * access token alongside it would make the endpoint unusable in the one situation it
+   * exists for: the access token has expired.
+   */
+  @Post('refresh')
+  @HttpCode(200)
+  @ApiOperation({
+    summary: 'Exchange a refresh token for a new access and refresh token pair',
+  })
+  @ApiBaseResponse(LoginWithAccessToken)
+  public async refresh(@Body() requestBody: RefreshTokenDto) {
+    const result = await this._authenticationService.refresh(requestBody.refreshToken);
+
+    return {
+      message: 'Token refreshed successfully',
+      result,
+    };
+  }
+
+  /**
+   * Also unguarded, and for the same reason — a user pressing "log out" fifteen minutes
+   * after their last request would otherwise be unable to. Revoking a token that does
+   * not exist reports `revoked: false` rather than 404, so this cannot be used to probe
+   * which tokens are real.
+   */
+  @Post('logout')
+  @HttpCode(200)
+  @ApiOperation({
+    summary: 'Revoke a refresh token',
+  })
+  public async logout(@Body() requestBody: RefreshTokenDto) {
+    const result = await this._authenticationService.logout(requestBody.refreshToken);
+
+    return {
+      message: 'Logged out successfully',
       result,
     };
   }

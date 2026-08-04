@@ -3,6 +3,7 @@ import * as bcrypt from 'bcrypt';
 
 // Constants
 import { BAD_REQUEST_MSG, SALT_OR_ROUND } from '../../../common/constants/common.constant';
+import { ERROR_CODE } from '../../../common/constants/error-code.constant';
 import { TOKEN_TYPE } from '../../../common/constants/token.constant';
 
 // Crypto
@@ -15,13 +16,14 @@ import { RegisterEmailDto } from '../dtos/register.dto';
 import { UsersEntity } from '../../users/entities/users.entity';
 
 // Interfaces
-import { ILogin } from '../interfaces/authentication.interface';
+import type { ILogin, ILogout } from '../interfaces/authentication.interface';
 
 // NestJS Libraries
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 
 // Services
+import { RefreshTokenService } from './refresh-token.service';
 import { UsersService } from '../../users/services/users.service';
 
 @Injectable()
@@ -29,6 +31,7 @@ export class AuthenticationService {
   constructor(
     private readonly _usersService: UsersService,
     private readonly _jwtService: JwtService,
+    private readonly _refreshTokenService: RefreshTokenService,
   ) {}
 
   /**
@@ -59,22 +62,24 @@ export class AuthenticationService {
   /**
    * @description Handle business logic for logging in a user
    */
-  public async login(user: IRequestUser): Promise<ILogin> {
-    /**
-     * `jti` and `type` are not decoration.
-     *
-     * Without `jti` a token cannot be named, and anything that cannot be named cannot
-     * be revoked — logout would be a client-side gesture that leaves a valid
-     * credential in the wild until it expires on its own.
-     *
-     * Without `type`, a refresh token is indistinguishable from an access token: both
-     * are signed with the same secret, so the long-lived one verifies as the
-     * short-lived one and the 15-minute access TTL buys nothing.
-     *
-     * `role` is embedded so authorisation does not need a database round trip per
-     * request. The cost is bounded staleness — a role change takes effect for that
-     * user when their access token next rotates, which is why the access TTL is short.
-     */
+  /**
+   * @description Mint an access token for a user.
+   *
+   * `jti` and `type` are not decoration.
+   *
+   * Without `jti` a token cannot be named, and anything that cannot be named cannot be
+   * revoked — logout would be a client-side gesture that leaves a valid credential in
+   * the wild until it expires on its own.
+   *
+   * Without `type`, a refresh token is indistinguishable from an access token: both
+   * are signed with the same secret, so the long-lived one verifies as the short-lived
+   * one and the 15-minute access TTL buys nothing.
+   *
+   * `role` is embedded so authorisation does not need a database round trip per
+   * request. The cost is bounded staleness — a role change takes effect for that user
+   * when their access token next rotates, which is why the access TTL is short.
+   */
+  private _signAccessToken(user: Pick<IRequestUser, 'email' | 'id' | 'role' | 'username'>): string {
     const payload: IValidateJWTStrategy = {
       email: user.email,
       jti: randomUUID(),
@@ -84,9 +89,64 @@ export class AuthenticationService {
       username: user.username,
     };
 
+    return this._jwtService.sign(payload);
+  }
+
+  /**
+   * @description Handle business logic for logging in a user
+   */
+  public async login(user: IRequestUser): Promise<ILogin> {
+    const refresh = await this._refreshTokenService.issue(user.id);
+
     return {
-      accessToken: this._jwtService.sign(payload),
+      accessToken: this._signAccessToken(user),
+      refreshToken: refresh.token,
     };
+  }
+
+  /**
+   * @description Exchange a refresh token for a new pair.
+   *
+   * The user is re-read from the database rather than reconstructed from the old
+   * token's claims. This is the one moment in a session where a role change or a
+   * deletion can take effect, and it is what bounds the staleness that embedding
+   * `role` in the access token introduces — hence a short access TTL and a lookup
+   * here, rather than a lookup on every request.
+   */
+  public async refresh(refreshToken: string): Promise<ILogin> {
+    const rotated = await this._refreshTokenService.rotate(refreshToken);
+    const user = await this._usersService.findOneById(rotated.userId).catch(() => null);
+
+    /**
+     * The account is gone or soft-deleted, but its session chain is still alive. Kill
+     * the family rather than leaking a 404 that would confirm the id once existed.
+     */
+    if (!user) {
+      await this._refreshTokenService.revokeFamily(rotated.familyId);
+
+      throw new UnauthorizedException({
+        errorCode: ERROR_CODE.AUTH_REFRESH_INVALID,
+        message: 'The account for this session no longer exists.',
+      });
+    }
+
+    return {
+      accessToken: this._signAccessToken(user),
+      refreshToken: rotated.token,
+    };
+  }
+
+  /**
+   * @description Revoke a refresh token.
+   *
+   * Not behind `JwtAuthGuard` on purpose. Requiring a live access token would make
+   * logout impossible fifteen minutes after the last request — exactly when a user is
+   * most likely to press it. Holding the refresh token is the authorisation, and
+   * revoking an unknown one is a silent no-op rather than a 404, so this cannot be
+   * used to probe which tokens exist.
+   */
+  public async logout(refreshToken: string): Promise<ILogout> {
+    return { revoked: await this._refreshTokenService.revoke(refreshToken) };
   }
 
   /**

@@ -17,7 +17,7 @@ import type { UsersEntity } from '../../users/entities/users.entity';
 import { JwtConfigModule } from '../../../configurations/jwt/jwt-configuration.module';
 
 // NestJS Libraries
-import { ConflictException } from '@nestjs/common';
+import { ConflictException, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import type { TestingModule } from '@nestjs/testing';
@@ -25,6 +25,7 @@ import { Test } from '@nestjs/testing';
 
 // Services
 import { AuthenticationService } from './authentication.service';
+import { RefreshTokenService } from './refresh-token.service';
 import { UsersService } from '../../users/services/users.service';
 
 jest.mock('bcrypt', () => ({
@@ -48,9 +49,37 @@ const expectedValue = {
   deletedById: '1',
 } as UsersEntity;
 
+/** Read the claim set back off the wire rather than trusting the input object. */
+const decodeClaims = (accessToken: string): Record<string, unknown> =>
+  JSON.parse(Buffer.from(accessToken.split('.')[1], 'base64url').toString()) as Record<
+    string,
+    unknown
+  >;
+
+const buildRefreshTokenServiceMock = () => ({
+  issue: jest.fn().mockResolvedValue({
+    id: 'refresh-1',
+    token: 'raw-refresh-token',
+    userId: '1',
+    familyId: 'family-1',
+    expiresAt: new Date('2026-08-11T09:15:00.000Z'),
+  }),
+  revoke: jest.fn().mockResolvedValue(true),
+  revokeFamily: jest.fn().mockResolvedValue(1),
+  rotate: jest.fn().mockResolvedValue({
+    id: 'refresh-2',
+    token: 'rotated-refresh-token',
+    userId: '1',
+    familyId: 'family-1',
+    expiresAt: new Date('2026-08-11T09:15:00.000Z'),
+    replacedId: 'refresh-1',
+  }),
+});
+
 describe('AuthenticationService', () => {
   let service: AuthenticationService;
   let userService: UsersService;
+  let refreshTokenService: ReturnType<typeof buildRefreshTokenServiceMock>;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -86,12 +115,23 @@ describe('AuthenticationService', () => {
             create: jest
               .fn()
               .mockImplementation((user: UsersService) => Promise.resolve({ id: '1', ...user })),
+            findOneById: jest.fn().mockResolvedValue({
+              email: 'test@test.com',
+              id: '1',
+              role: USER_ROLE.USER,
+              username: 'user name',
+            }),
           },
+        },
+        {
+          provide: RefreshTokenService,
+          useValue: buildRefreshTokenServiceMock(),
         },
       ],
     }).compile();
 
     userService = module.get<UsersService>(UsersService);
+    refreshTokenService = module.get(RefreshTokenService);
     service = module.get<AuthenticationService>(AuthenticationService);
     jest.clearAllMocks();
   });
@@ -145,15 +185,15 @@ describe('AuthenticationService', () => {
       role: USER_ROLE.USER,
     };
 
-    /** Read the claim set back off the wire rather than trusting the input object. */
-    const decodeClaims = (accessToken: string): Record<string, unknown> =>
-      JSON.parse(Buffer.from(accessToken.split('.')[1], 'base64url').toString()) as Record<
-        string,
-        unknown
-      >;
-
     it('should return a accessToken', async () => {
       expect(await service.login(requestUser)).toHaveProperty('accessToken');
+    });
+
+    it('should open a new refresh chain and hand back its raw token', async () => {
+      const result = await service.login(requestUser);
+
+      expect(refreshTokenService.issue).toHaveBeenCalledWith('1');
+      expect(result.refreshToken).toBe('raw-refresh-token');
     });
 
     it('should stamp sub, type and role into the token', async () => {
@@ -231,6 +271,64 @@ describe('AuthenticationService', () => {
       jest.spyOn(userService, 'create').mockRejectedValue(conflict);
 
       await expect(service.register(buildBody())).rejects.toBe(conflict);
+    });
+  });
+
+  describe('refresh', () => {
+    it('should rotate the presented token and return the successor', async () => {
+      const result = await service.refresh('raw-refresh-token');
+
+      expect(refreshTokenService.rotate).toHaveBeenCalledWith('raw-refresh-token');
+      expect(result.refreshToken).toBe('rotated-refresh-token');
+    });
+
+    /**
+     * The role in the new access token has to come from the database, not from the old
+     * token. Copying it forward would mean a demoted admin keeps admin for as long as
+     * they keep refreshing — which is unbounded, and defeats the point of the short
+     * access TTL.
+     */
+    it('should re-read the user so a changed role takes effect', async () => {
+      jest.spyOn(userService, 'findOneById').mockResolvedValue({
+        email: 'test@test.com',
+        id: '1',
+        role: USER_ROLE.ADMIN,
+        username: 'user name',
+      } as UsersEntity);
+
+      const result = await service.refresh('raw-refresh-token');
+
+      expect(userService.findOneById).toHaveBeenCalledWith('1');
+      expect(decodeClaims(result.accessToken)).toMatchObject({ role: USER_ROLE.ADMIN });
+    });
+
+    it('should kill the family and reject when the account is gone', async () => {
+      jest.spyOn(userService, 'findOneById').mockRejectedValue(new NotFoundException());
+
+      const error = await service.refresh('raw-refresh-token').then(
+        () => null,
+        (thrown: unknown) => thrown,
+      );
+
+      expect(refreshTokenService.revokeFamily).toHaveBeenCalledWith('family-1');
+      expect(error).toBeInstanceOf(UnauthorizedException);
+      expect((error as UnauthorizedException).getResponse()).toMatchObject({
+        errorCode: ERROR_CODE.AUTH_REFRESH_INVALID,
+      });
+    });
+  });
+
+  describe('logout', () => {
+    it('should revoke the presented token', async () => {
+      await expect(service.logout('raw-refresh-token')).resolves.toEqual({ revoked: true });
+      expect(refreshTokenService.revoke).toHaveBeenCalledWith('raw-refresh-token');
+    });
+
+    // Logout must not tell a caller whether a token was real.
+    it('should report revoked:false for an unknown token rather than throwing', async () => {
+      refreshTokenService.revoke.mockResolvedValue(false);
+
+      await expect(service.logout('who-knows')).resolves.toEqual({ revoked: false });
     });
   });
 });

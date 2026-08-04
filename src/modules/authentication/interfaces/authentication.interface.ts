@@ -1,5 +1,11 @@
 export interface ILogin {
   accessToken: string;
+  refreshToken: string;
+}
+
+/** Result of revoking a refresh token. */
+export interface ILogout {
+  revoked: boolean;
 }
 
 /**

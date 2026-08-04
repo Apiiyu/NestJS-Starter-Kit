@@ -2,7 +2,7 @@
 import { AuthenticationController } from './authentication.controller';
 
 // DTOs
-import { LoginUsernameDto } from '../dtos/login.dto';
+import { LoginUsernameDto, RefreshTokenDto } from '../dtos/login.dto';
 
 // NestJS Libraries
 import { JwtModule } from '@nestjs/jwt';
@@ -15,6 +15,7 @@ import { JwtConfigModule } from '../../../configurations/jwt/jwt-configuration.m
 
 // Services
 import { AuthenticationService } from '../services/authentication.service';
+import { RefreshTokenService } from '../services/refresh-token.service';
 import { UsersService } from '../../users/services/users.service';
 
 describe('AuthenticationController', () => {
@@ -64,7 +65,37 @@ describe('AuthenticationController', () => {
                 id,
               }),
             ),
+            findOneById: jest.fn().mockImplementation((id: string) =>
+              Promise.resolve({
+                email: 'test@test.com',
+                id,
+                role: 'user',
+                username: 'user name',
+              }),
+            ),
             remove: jest.fn(),
+          },
+        },
+        {
+          provide: RefreshTokenService,
+          useValue: {
+            issue: jest.fn().mockResolvedValue({
+              id: 'refresh-1',
+              token: 'raw-refresh-token',
+              userId: '1',
+              familyId: 'family-1',
+              expiresAt: new Date('2026-08-11T09:15:00.000Z'),
+            }),
+            revoke: jest.fn().mockResolvedValue(true),
+            revokeFamily: jest.fn().mockResolvedValue(1),
+            rotate: jest.fn().mockResolvedValue({
+              id: 'refresh-2',
+              token: 'rotated-refresh-token',
+              userId: '1',
+              familyId: 'family-1',
+              expiresAt: new Date('2026-08-11T09:15:00.000Z'),
+              replacedId: 'refresh-1',
+            }),
           },
         },
       ],
@@ -89,6 +120,7 @@ describe('AuthenticationController', () => {
           id: '1',
           username: 'user name',
           email: 'test@test.com',
+          role: 'user',
         },
       };
 
@@ -98,6 +130,32 @@ describe('AuthenticationController', () => {
       expect(response).toHaveProperty('result');
       expect(response.message).toBe('User logged in successfully');
       expect(response.result).toHaveProperty('accessToken');
+      expect(response.result).toHaveProperty('refreshToken');
+    });
+  });
+
+  describe('[POST] /authentication/refresh', () => {
+    it('should return a new token pair', async () => {
+      const body = new RefreshTokenDto();
+      body.refreshToken = 'raw-refresh-token';
+
+      const response = await controller.refresh(body);
+
+      expect(response.message).toBe('Token refreshed successfully');
+      expect(response.result).toHaveProperty('accessToken');
+      expect(response.result.refreshToken).toBe('rotated-refresh-token');
+    });
+  });
+
+  describe('[POST] /authentication/logout', () => {
+    it('should report that the token was revoked', async () => {
+      const body = new RefreshTokenDto();
+      body.refreshToken = 'raw-refresh-token';
+
+      const response = await controller.logout(body);
+
+      expect(response.message).toBe('Logged out successfully');
+      expect(response.result).toEqual({ revoked: true });
     });
   });
 });
