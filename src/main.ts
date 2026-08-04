@@ -6,6 +6,9 @@ import { useContainer } from 'class-validator';
 // Compression
 import compression from 'compression';
 
+// Helmet
+import helmet from 'helmet';
+
 // Interceptors
 import { CustomBaseResponseInterceptor } from './common/interceptors/base-response.interceptor';
 import { ContextInterceptor } from './common/interceptors/context.interceptor';
@@ -17,7 +20,6 @@ import { AppModule } from './app.module';
 import { ClassSerializerInterceptor, Logger, ValidationPipe, VersioningType } from '@nestjs/common';
 import { NestFactory, Reflector } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
-import type { NextFunction, Request, Response } from 'express';
 
 // Pino
 import { Logger as PinoLogger } from 'nestjs-pino';
@@ -57,17 +59,25 @@ async function bootstrap() {
    */
   swaggerSetup(app, appConfigurations);
 
-  app.use((_request: Request, response: Response, next: NextFunction) => {
-    response.setHeader('Referrer-Policy', 'no-referrer');
-    response.setHeader('X-Content-Type-Options', 'nosniff');
-    response.setHeader('X-DNS-Prefetch-Control', 'off');
-    response.setHeader('X-Download-Options', 'noopen');
-    response.setHeader('X-Frame-Options', 'SAMEORIGIN');
-    response.setHeader('X-Permitted-Cross-Domain-Policies', 'none');
-    response.setHeader('X-XSS-Protection', '0');
-
-    next();
-  });
+  /**
+   * Security headers.
+   *
+   * This replaces seven hand-maintained `setHeader` calls. Hand-rolling them means
+   * the list only ever gains a header when somebody remembers to add it; helmet
+   * tracks the current recommendations as a dependency instead.
+   *
+   * `frameguard` is set to SAMEORIGIN rather than helmet's DENY default to preserve
+   * the previous behaviour. CSP is left off because helmet's default policy blocks
+   * the inline scripts Swagger UI serves from `/docs`, which would silently break
+   * the API explorer; turn it on per-route once the docs route is carved out.
+   */
+  app.use(
+    helmet({
+      contentSecurityPolicy: false,
+      frameguard: { action: 'sameorigin' },
+      referrerPolicy: { policy: 'no-referrer' },
+    }),
+  );
 
   /**
    * Global Serializer

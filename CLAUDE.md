@@ -61,9 +61,27 @@ Environment variables are loaded via `.env` (see `.env.example`). Required vars:
 ### Database Pattern
 
 - **TypeORM + PostgreSQL**, Data Mapper pattern
-- `AppBaseEntity` (`src/common/entities/app-base-entity.ts`): UUID PK, Unix-ms timestamps, createdBy/updatedBy/deletedBy audit fields, soft delete via `deletedAt`
-- DataSource config at `src/database/postgres/postgres-data-source.ts`
-- Seeders in `src/database/seeders/`
+- `AppBaseEntity` (`src/common/entities/base.entity.ts`): UUID PK, `timestamptz` audit
+  timestamps maintained by TypeORM (`@CreateDateColumn` / `@UpdateDateColumn` /
+  `@DeleteDateColumn`), plus createdBy/updatedBy/deletedBy fields
+- Soft delete is native: `softDelete()`, `restore()` and `withDeleted` all work.
+  TypeORM appends `deletedAt IS NULL` to every find and query-builder call
+  automatically, so **any query that must see deleted rows has to opt in** with
+  `.withDeleted()` / `withDeleted: true`. `UsersService._filterData` and
+  `UsersService.restore` do exactly that; forgetting it fails silently — an empty
+  page or a spurious NotFound, never an error.
+- Do not reintroduce `@BeforeInsert`/`@BeforeUpdate` hooks for timestamps. They do
+  not fire for `repository.update()` or `QueryBuilder.update()`, which is how
+  `updatedAt` went stale before, and raw SQL (the seeders) bypassed them entirely.
+- DataSource config at `src/database/postgres/postgres-data-source.ts`. It duplicates
+  `entities` and `namingStrategy` from the runtime module on purpose — the CLI loads
+  this file, and without them `migration:generate` emits an empty migration or loops
+  renaming columns forever.
+- Migrations in `src/database/postgres/migrations/`, seeders in
+  `src/database/postgres/seeders/`
+- The TypeORM CLI runs through `bun node_modules/typeorm/cli.js`, not `bunx typeorm`.
+  `bunx` hands the data-source to Node's ESM loader, which cannot resolve the
+  extensionless relative TS imports inside it.
 
 ### Authentication Pattern
 
