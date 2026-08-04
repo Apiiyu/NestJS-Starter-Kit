@@ -58,6 +58,21 @@ Each configuration lives in `src/configurations/<domain>/`. Config modules use `
 
 Environment variables are loaded via `.env` (see `.env.example`). Required vars: `APP_*`, `DATABASE_*`, `JWT_*`.
 
+Two parsers read these files and they disagree, which produces failures that look like
+anything but a config problem:
+
+- **`docker compose` reads only `.env`. `bun` reads `.env` then overrides it with
+  `.env.local`.** A leftover `.env.local` makes Compose publish one port while the app
+  dials another — the symptom is `password authentication failed` from whatever else
+  happens to be on that port, not a connection refusal.
+- **bun expands `$` inside `.env` values in every quoting style**, bare, single-quoted and
+  double-quoted alike; `IT24680@$^*)` reaches the app as `IT24680@^*)`. Only
+  `"IT24680@\$^*)"` survives bun, and Compose resolves that same spelling to the identical
+  literal. Use the backslash form for any secret containing `$`.
+
+Never trust the file's contents — read the value back with
+`bun -e 'console.log(process.env.DATABASE_PASSWORD)'` before debugging anything downstream.
+
 ### Database Pattern
 
 - **TypeORM + PostgreSQL**, Data Mapper pattern
