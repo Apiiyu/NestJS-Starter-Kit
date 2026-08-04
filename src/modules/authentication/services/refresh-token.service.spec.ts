@@ -22,6 +22,7 @@ const updateReturning = (rows: unknown[]): unknown => [rows, rows.length];
 
 const mockRepo = {
   create: jest.fn((input: unknown) => input),
+  delete: jest.fn(),
   findOne: jest.fn(),
   query: jest.fn(),
   save: jest.fn(),
@@ -251,6 +252,23 @@ describe('RefreshTokenService', () => {
       mockRepo.update.mockResolvedValue({ affected: 4 });
 
       await expect(service.revokeFamily(FAMILY_ID)).resolves.toBe(4);
+    });
+  });
+
+  describe('purgeExpired', () => {
+    it('deletes rows whose expiry is in the past', async () => {
+      mockRepo.delete.mockResolvedValue({ affected: 7 });
+
+      await expect(service.purgeExpired()).resolves.toBe(7);
+      expect(mockRepo.delete).toHaveBeenCalledWith({
+        expiresAt: expect.objectContaining({ _type: 'lessThan' }),
+      });
+    });
+
+    it('reports zero when nothing was expired', async () => {
+      mockRepo.delete.mockResolvedValue({ affected: 0 });
+
+      await expect(service.purgeExpired()).resolves.toBe(0);
     });
   });
 });

@@ -24,7 +24,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { JwtConfigService } from '../../../configurations/jwt/jwt-configuration.service';
 
 // TypeORM
-import { IsNull, Repository } from 'typeorm';
+import { IsNull, LessThan, Repository } from 'typeorm';
 
 /** Shape of the row the rotation statement returns. */
 interface IClaimedToken {
@@ -214,6 +214,22 @@ export class RefreshTokenService {
       { familyId, revokedAt: IsNull() },
       { revokedAt: new Date() },
     );
+
+    return result.affected ?? 0;
+  }
+
+  /**
+   * @description Delete every row past its expiry, revoked or not.
+   *
+   * Used by the maintenance queue's hourly cleanup job. An expired token can never be
+   * rotated, replayed, or presented successfully again, so keeping the row past
+   * `expiresAt` serves no purpose — a hard delete is safe here, unlike `revoke`, which
+   * must never remove the row while it can still be replay-detected.
+   */
+  public async purgeExpired(): Promise<number> {
+    const result = await this._refreshTokenRepository.delete({
+      expiresAt: LessThan(new Date()),
+    });
 
     return result.affected ?? 0;
   }

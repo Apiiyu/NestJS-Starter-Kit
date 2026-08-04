@@ -2,7 +2,9 @@
 import { RequestContextModule } from './common/request-context/request-context.module';
 import { ContextInterceptor } from './common/interceptors/context.interceptor';
 import { AppConfigurationModule } from './configurations/app/app-configuration.module';
+import { CacheProviderModule } from './configurations/cache/cache-provider.module';
 import { DatabasePostgresConfigModule } from './configurations/database/postgres/postgres-configuration.module';
+import { QueueProviderModule } from './configurations/queue/queue-provider.module';
 
 // Filters
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
@@ -18,6 +20,7 @@ import { AppLoggerModule } from './configurations/logger/logger.module';
 
 // Modules
 import { AuthenticationModule } from './modules/authentication/authentication.module';
+import { MaintenanceModule } from './modules/maintenance/maintenance.module';
 import { UsersModule } from './modules/users/users.module';
 
 // NestJS Libraries
@@ -37,13 +40,16 @@ import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
   imports: [
     // Configuration Modules
     AppConfigurationModule,
+    CacheProviderModule,
     DatabasePostgresConfigModule,
     PostgresDatabaseProviderModule,
+    QueueProviderModule,
     RequestContextModule,
 
     // Infrastructure
     AppLoggerModule,
     HealthModule,
+    MaintenanceModule,
     ThrottlerModule.forRootAsync({
       imports: [AppConfigurationModule],
       inject: [AppConfigurationsService],
