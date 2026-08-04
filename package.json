@@ -15,7 +15,7 @@
     "commitizen": "cz",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "generate:module": "bun generate-module.mjs",
-    "seed:run": "bun ./node_modules/typeorm-extension/bin/cli.cjs seed:run -d ./src/database/postgres/postgres-data-source.ts",
+    "seed:run": "bunx typeorm-extension seed:run -d ./src/database/postgres/postgres-data-source.ts",
     "start": "nest start",
     "start:dev": "bun lint-check.mjs && nest start --watch",
     "start:debug": "nest start --debug --watch",

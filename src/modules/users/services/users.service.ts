@@ -48,7 +48,7 @@ export class UsersService {
         users.username ILIKE :search OR
         users.email ILIKE :search
       )
-      ${filters.isDeleted ? '' : 'AND users.deleted_at IS NULL'}
+      ${filters.isDeleted ? '' : 'AND users."deletedAt" IS NULL'}
       `,
       {
         search: `%${filters.search}%`,
@@ -83,9 +83,9 @@ export class UsersService {
       }
 
       if (filters.isDeleted) {
-        query.andWhere('users.deleted_at IS NOT NULL');
+        query.andWhere('users."deletedAt" IS NOT NULL');
       } else {
-        query.andWhere('users.deleted_at IS NULL');
+        query.andWhere('users."deletedAt" IS NULL');
       }
 
       if (filters.sortBy.length) {
