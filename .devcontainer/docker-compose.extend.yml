@@ -1,0 +1,28 @@
+# Additive override: adds a dedicated `devcontainer` service rather than trying to
+# repoint `app`'s image away from its own Dockerfile build — Compose has no reliable
+# way for an override file to unset a `build:` key from the base file, but adding a new
+# service is an unambiguous merge. Joins the same network so it reaches
+# postgres/redis/redis-queue/mailpit by service name, exactly like `app` does.
+services:
+  devcontainer:
+    image: mcr.microsoft.com/devcontainers/typescript-node:24
+    command: sleep infinity
+    working_dir: /workspace
+    volumes:
+      - ..:/workspace:cached
+    environment:
+      DATABASE_HOST: postgres
+      DATABASE_PORT: 5432
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      QUEUE_REDIS_HOST: redis-queue
+      QUEUE_REDIS_PORT: 6379
+      MAIL_HOST: mailpit
+      MAIL_PORT: 1025
+    depends_on:
+      - postgres
+      - redis
+      - redis-queue
+      - mailpit
+    networks:
+      - app_network
