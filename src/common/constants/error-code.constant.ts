@@ -19,12 +19,27 @@ export const ERROR_CODE = {
    * so its appearance in logs is a signal that something needs a real code.
    */
   BAD_REQUEST: 'COMMON_BAD_REQUEST',
+  CONFLICT: 'COMMON_CONFLICT',
   FORBIDDEN: 'COMMON_FORBIDDEN',
   INTERNAL_ERROR: 'COMMON_INTERNAL_ERROR',
   NOT_FOUND: 'COMMON_NOT_FOUND',
   RATE_LIMITED: 'COMMON_RATE_LIMITED',
   UNAUTHORIZED: 'COMMON_UNAUTHORIZED',
   VALIDATION_FAILED: 'COMMON_VALIDATION_FAILED',
+
+  /**
+   * Users domain. All three are 409s raised from a caught Postgres 23505 rather
+   * than from a preceding existence check — see `postgres-error.helper.ts` for why
+   * the read-then-write version is a race.
+   *
+   * `USER_RESTORE_CONFLICT` is deliberately distinct from the two "taken" codes:
+   * the client action that resolves it differs. A taken email during signup means
+   * "pick another"; a conflict during restore means "an active user already holds
+   * this identity, so deal with that row first".
+   */
+  USER_EMAIL_TAKEN: 'USER_EMAIL_TAKEN',
+  USER_RESTORE_CONFLICT: 'USER_RESTORE_CONFLICT',
+  USER_USERNAME_TAKEN: 'USER_USERNAME_TAKEN',
 } as const;
 
 export type ErrorCode = (typeof ERROR_CODE)[keyof typeof ERROR_CODE];
@@ -38,6 +53,7 @@ export const ERROR_CODE_BY_STATUS: Readonly<Record<number, ErrorCode>> = {
   401: ERROR_CODE.UNAUTHORIZED,
   403: ERROR_CODE.FORBIDDEN,
   404: ERROR_CODE.NOT_FOUND,
+  409: ERROR_CODE.CONFLICT,
   422: ERROR_CODE.VALIDATION_FAILED,
   429: ERROR_CODE.RATE_LIMITED,
   500: ERROR_CODE.INTERNAL_ERROR,

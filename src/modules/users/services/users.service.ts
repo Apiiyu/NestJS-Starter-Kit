@@ -1,5 +1,6 @@
 // Constants
 import { BAD_REQUEST_MSG } from '../../../common/constants/common.constant';
+import { ERROR_CODE } from '../../../common/constants/error-code.constant';
 
 // DTOs
 import { CreateUserDto } from '../dtos/create-user.dto';
@@ -9,17 +10,34 @@ import { PageMetaDto } from '../../../common/dtos/page-meta.dto';
 import { UpdateUserDto } from '../dtos/update-user.dto';
 
 // Entities
-import { UsersEntity } from '../entities/users.entity';
+import { USERS_UNIQUE_INDEX, UsersEntity } from '../entities/users.entity';
 
 // Helpers
+import { getUniqueViolationConstraint } from '../../../common/helpers/postgres-error.helper';
 import { QuerySortingHelper } from '../../../common/helpers/query-sorting.helper';
 
 // NestJS Libraries
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 
 // TypeORM
 import { DataSource, EntityManager, Repository, SelectQueryBuilder } from 'typeorm';
+
+/**
+ * @description Maps a violated unique index back to the field a client would
+ * recognise. A `Map` rather than an object literal because the key comes from a
+ * database error string, and looking that up as an object property is the exact
+ * pattern `security/detect-object-injection` exists to flag.
+ */
+const FIELD_BY_UNIQUE_INDEX = new Map<string, 'email' | 'username'>([
+  [USERS_UNIQUE_INDEX.EMAIL, 'email'],
+  [USERS_UNIQUE_INDEX.USERNAME, 'username'],
+]);
 
 @Injectable()
 export class UsersService {
@@ -124,6 +142,48 @@ export class UsersService {
   }
 
   /**
+   * @description Translate a Postgres unique violation into a 409, or return quietly
+   * when the failure was something else.
+   *
+   * Called from the `catch` of every write that can collide. The point is that the
+   * collision is detected by the database, not by a `findOneByEmail` call beforehand:
+   * two concurrent registrations for the same address both read "free", both insert,
+   * and the loser gets a 500 from an unhandled index error. Letting the index be the
+   * arbiter costs one round trip and is correct under concurrency.
+   *
+   * `action` exists because the same violated index means different things to a
+   * client. During `CREATE` it means "this identity is taken, choose another"; during
+   * `RESTORE` it means "an active user already holds the identity of the row you are
+   * bringing back", which the client cannot fix by retrying with different input.
+   */
+  private _throwOnUniqueViolation(error: unknown, action: 'CREATE' | 'RESTORE'): void {
+    const constraint = getUniqueViolationConstraint(error);
+
+    if (constraint === null) {
+      return;
+    }
+
+    const field = FIELD_BY_UNIQUE_INDEX.get(constraint);
+
+    // ? A unique violation on an index we do not own — let the generic handler take it
+    if (!field) {
+      return;
+    }
+
+    if (action === 'RESTORE') {
+      throw new ConflictException({
+        errorCode: ERROR_CODE.USER_RESTORE_CONFLICT,
+        message: `Cannot restore this user because an active user already uses the same ${field}.`,
+      });
+    }
+
+    throw new ConflictException({
+      errorCode: field === 'email' ? ERROR_CODE.USER_EMAIL_TAKEN : ERROR_CODE.USER_USERNAME_TAKEN,
+      message: `A user with this ${field} already exists.`,
+    });
+  }
+
+  /**
    * @description Handle business logic for creating a user
    */
   public async create(payload: CreateUserDto): Promise<UsersEntity> {
@@ -136,6 +196,8 @@ export class UsersService {
       // ? Then, we save the model to the database
       return await this._usersRepository.save(model);
     } catch (error: unknown) {
+      this._throwOnUniqueViolation(error, 'CREATE');
+
       const err = error as { response?: { error?: string }; message?: string };
       throw new BadRequestException(BAD_REQUEST_MSG, {
         cause: new Error(),
@@ -269,6 +331,13 @@ export class UsersService {
         },
       });
     } catch (error: unknown) {
+      /**
+       * Clearing `deletedAt` moves the row back inside the partial unique indexes, so
+       * restore is the one operation that can collide with a user who registered the
+       * same email after the original was deleted. That is a 409, not a 400.
+       */
+      this._throwOnUniqueViolation(error, 'RESTORE');
+
       const err = error as { response?: { error?: string }; message?: string };
       throw new BadRequestException(BAD_REQUEST_MSG, {
         cause: new Error(),

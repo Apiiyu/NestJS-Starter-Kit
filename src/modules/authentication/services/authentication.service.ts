@@ -67,33 +67,28 @@ export class AuthenticationService {
    * @description Handle business logic for registering a user
    */
   public async register(payload: RegisterEmailDto): Promise<UsersEntity> {
-    try {
-      const { email, username, password } = payload;
-      const emailExists = await this._usersService.findOneByEmail(email);
+    const { email, username, password } = payload;
 
-      if (emailExists) {
-        throw new BadRequestException(`Bad Request`, {
-          cause: new Error(),
-          description: `Users with email ${email} already exists`,
-        });
-      }
+    /**
+     * Hash Password
+     */
+    const passwordHashed = await bcrypt.hash(password, SALT_OR_ROUND);
 
-      /**
-       * Hash Password
-       */
-      const passwordHashed = await bcrypt.hash(password, SALT_OR_ROUND);
-
-      return await this._usersService.create({
-        email,
-        username,
-        password: passwordHashed,
-      });
-    } catch (error: unknown) {
-      const err = error as { response?: { message?: string; error?: string }; message?: string };
-      throw new BadRequestException(err.response?.message ?? BAD_REQUEST_MSG, {
-        cause: new Error(),
-        description: err.response?.error ?? err.message,
-      });
-    }
+    /**
+     * No "does this email exist?" lookup before the insert. Two requests for the same
+     * address can both pass that check and both proceed, so it never actually
+     * prevented the duplicate — it only decided whether the duplicate surfaced as a
+     * clean 409 or as an unhandled index error. The partial unique indexes on `users`
+     * settle it atomically, and `UsersService.create` turns the resulting 23505 into
+     * `USER_EMAIL_TAKEN` / `USER_USERNAME_TAKEN`.
+     *
+     * The old catch-all is gone with it: wrapping every failure in a 400 swallowed
+     * those 409s too, along with any genuine 500.
+     */
+    return this._usersService.create({
+      email,
+      username,
+      password: passwordHashed,
+    });
   }
 }

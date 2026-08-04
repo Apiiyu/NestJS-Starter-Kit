@@ -1,11 +1,13 @@
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 
+import { ERROR_CODE } from '../../../common/constants/error-code.constant';
 import { ListOptionDto } from '../../../common/dtos/list-options.dto';
-import { UsersEntity } from '../entities/users.entity';
+import { PG_UNIQUE_VIOLATION } from '../../../common/helpers/postgres-error.helper';
+import { USERS_UNIQUE_INDEX, UsersEntity } from '../entities/users.entity';
 import { UsersService } from './users.service';
 
 const mockUser: Partial<UsersEntity> = {
@@ -15,6 +17,24 @@ const mockUser: Partial<UsersEntity> = {
   password: 'hashed',
   deletedAt: null,
 };
+
+/**
+ * Shaped like what `pg` actually throws through TypeORM: the code and the index name
+ * live on `driverError`, not on the wrapper.
+ */
+const uniqueViolation = (constraint: string): Error =>
+  Object.assign(new Error(`duplicate key value violates unique constraint "${constraint}"`), {
+    driverError: { code: PG_UNIQUE_VIOLATION, constraint },
+  });
+
+/** Await a rejection and hand back the thrown value, so it can be inspected. */
+const rejection = async (promise: Promise<unknown>): Promise<unknown> =>
+  promise.then(
+    () => {
+      throw new Error('Expected the call to reject, but it resolved.');
+    },
+    (error: unknown) => error,
+  );
 
 const mockQb = {
   andWhere: jest.fn().mockReturnThis(),
@@ -73,6 +93,43 @@ describe('UsersService', () => {
 
     it('throws BadRequestException on failure', async () => {
       mockRepo.save.mockRejectedValue(new Error('DB error'));
+      await expect(
+        service.create({ username: 'u', email: 'e', password: 'p' }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    /**
+     * A duplicate is a 409, not a 400. The distinction matters to a client: 400 says
+     * "your request is malformed, fix it"; 409 says "the request is fine, the identity
+     * is taken". Before the partial unique indexes existed there was no 23505 to catch
+     * and every duplicate arrived as a generic 400.
+     */
+    it('maps a duplicate email to 409 USER_EMAIL_TAKEN', async () => {
+      mockRepo.save.mockRejectedValue(uniqueViolation(USERS_UNIQUE_INDEX.EMAIL));
+
+      const error = await rejection(service.create({ username: 'u', email: 'e', password: 'p' }));
+
+      expect(error).toBeInstanceOf(ConflictException);
+      expect((error as ConflictException).getResponse()).toMatchObject({
+        errorCode: ERROR_CODE.USER_EMAIL_TAKEN,
+      });
+    });
+
+    it('maps a duplicate username to 409 USER_USERNAME_TAKEN', async () => {
+      mockRepo.save.mockRejectedValue(uniqueViolation(USERS_UNIQUE_INDEX.USERNAME));
+
+      const error = await rejection(service.create({ username: 'u', email: 'e', password: 'p' }));
+
+      expect(error).toBeInstanceOf(ConflictException);
+      expect((error as ConflictException).getResponse()).toMatchObject({
+        errorCode: ERROR_CODE.USER_USERNAME_TAKEN,
+      });
+    });
+
+    // A unique index this service does not own must not be reported as a users conflict.
+    it('falls through to BadRequestException for an unrecognised unique index', async () => {
+      mockRepo.save.mockRejectedValue(uniqueViolation('UQ_some_other_table_thing'));
+
       await expect(
         service.create({ username: 'u', email: 'e', password: 'p' }),
       ).rejects.toBeInstanceOf(BadRequestException);
@@ -174,6 +231,28 @@ describe('UsersService', () => {
       await service.restore('uuid-1', requestUser);
 
       expect(mockRepo.findOne).toHaveBeenCalledWith(expect.objectContaining({ withDeleted: true }));
+    });
+
+    /**
+     * Restore is the one write that can collide without the caller supplying any new
+     * input: clearing `deletedAt` moves the row back inside the partial unique indexes,
+     * where somebody who signed up after the delete may already be sitting. It gets its
+     * own code because "pick a different email" is not advice the caller can act on.
+     */
+    it('maps a collision with a live user to 409 USER_RESTORE_CONFLICT', async () => {
+      mockRepo.findOne.mockResolvedValue({
+        ...mockUser,
+        deletedAt: new Date('2026-08-04T09:15:00.000Z'),
+      });
+      mockRepo.save.mockRejectedValue(uniqueViolation(USERS_UNIQUE_INDEX.EMAIL));
+
+      const requestUser: IRequestUser = { id: 'admin', email: 'a@a.com', username: 'admin' };
+      const error = await rejection(service.restore('uuid-1', requestUser));
+
+      expect(error).toBeInstanceOf(ConflictException);
+      expect((error as ConflictException).getResponse()).toMatchObject({
+        errorCode: ERROR_CODE.USER_RESTORE_CONFLICT,
+      });
     });
   });
 
