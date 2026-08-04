@@ -78,6 +78,15 @@ export class UsersService {
     try {
       this._addRelations(query);
 
+      /**
+       * `deletedAt` is a `@DeleteDateColumn`, so TypeORM appends `deletedAt IS NULL`
+       * to this query on its own. That implicit clause would make the `isDeleted`
+       * branch below unsatisfiable — `IS NULL AND IS NOT NULL` matches no row — and
+       * the filter would silently return an empty page instead of the deleted ones.
+       * Opting out here keeps the explicit clauses authoritative.
+       */
+      query.withDeleted();
+
       if (filters.search) {
         this._searchData(filters, query);
       }
@@ -141,11 +150,10 @@ export class UsersService {
   public async delete(id: string, user: IRequestUser): Promise<UsersEntity> {
     try {
       const selectedUser = await this.findOneById(id);
-      const deletedAt = Math.floor(Date.now() / 1000);
 
       // Merge Two Entity into single one and save it
       this._usersRepository.merge(selectedUser, {
-        deletedAt,
+        deletedAt: new Date(),
       });
 
       return await this._usersRepository.save(selectedUser, {
@@ -191,9 +199,10 @@ export class UsersService {
   /**
    * @description Handle business logic for finding a by specific id
    */
-  public async findOneById(id: string): Promise<UsersEntity> {
+  public async findOneById(id: string, withDeleted = false): Promise<UsersEntity> {
     const user = await this._usersRepository.findOne({
       where: { id },
+      withDeleted,
     });
 
     if (!user) {
@@ -240,7 +249,13 @@ export class UsersService {
    */
   public async restore(id: string, user: IRequestUser): Promise<UsersEntity> {
     try {
-      const selectedUser = await this.findOneById(id);
+      /**
+       * The row being restored is by definition soft-deleted, so this lookup has to
+       * opt out of the implicit `deletedAt IS NULL` filter that `@DeleteDateColumn`
+       * adds — otherwise `restore()` could never find anything and would always
+       * throw NotFound.
+       */
+      const selectedUser = await this.findOneById(id, true);
 
       // Merge Two Entity into single one and save it
       this._usersRepository.merge(selectedUser, {

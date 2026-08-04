@@ -5,8 +5,32 @@ import { Exclude } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
 
 // TypeORM
-import { Column, PrimaryGeneratedColumn, BeforeUpdate, BeforeInsert } from 'typeorm';
+import {
+  Column,
+  CreateDateColumn,
+  DeleteDateColumn,
+  PrimaryGeneratedColumn,
+  UpdateDateColumn,
+} from 'typeorm';
 
+/**
+ * Every audit timestamp is a real `timestamptz`, never a Unix epoch number, and
+ * every one is maintained by TypeORM rather than by entity lifecycle hooks.
+ *
+ * Two concrete reasons, both of which bit the previous bigint design:
+ *
+ * 1. `@BeforeUpdate` only fires when `save()` is called on an entity instance that
+ *    was loaded first. It does NOT fire for `repository.update()` or for
+ *    `QueryBuilder.update()`, so those paths silently left `updatedAt` stale.
+ *    `@UpdateDateColumn` is applied at the persistence layer and covers them.
+ * 2. Unix-second precision made the default `createdAt|DESC` sort
+ *    (see `ListOptionDto`) tie for rows written inside the same second, which
+ *    makes keyset-free pagination non-deterministic — rows can repeat across
+ *    pages or vanish. Microsecond precision removes that class of bug.
+ *
+ * These columns keep explicit camelCase names, so raw SQL must quote them
+ * (`users."deletedAt"`) — `SnakeNamingStrategy` does not apply to them.
+ */
 export abstract class AppBaseEntity {
   @ApiProperty()
   @PrimaryGeneratedColumn('uuid')
@@ -16,13 +40,12 @@ export abstract class AppBaseEntity {
    * Create, Update and Delete Date Columns
    */
   @ApiProperty()
-  @Column({
+  @CreateDateColumn({
     name: 'createdAt',
-    type: 'bigint',
+    type: 'timestamptz',
     update: false,
-    nullable: true,
   })
-  public createdAt!: number;
+  public createdAt!: Date;
 
   @ApiProperty()
   @Column({
@@ -41,12 +64,11 @@ export abstract class AppBaseEntity {
   public createdById!: string;
 
   @ApiProperty()
-  @Column({
+  @UpdateDateColumn({
     name: 'updatedAt',
-    type: 'bigint',
-    nullable: true,
+    type: 'timestamptz',
   })
-  public updatedAt!: number;
+  public updatedAt!: Date;
 
   @ApiProperty()
   @Column({
@@ -64,13 +86,21 @@ export abstract class AppBaseEntity {
   @Exclude()
   public updatedById!: string;
 
-  @ApiProperty()
-  @Column({
+  /**
+   * @description Soft-delete marker. Declared as `@DeleteDateColumn` so TypeORM's
+   * native soft-delete APIs work: `softDelete()`, `restore()`, and the implicit
+   * `deletedAt IS NULL` filter on every find and query-builder call.
+   *
+   * Because that filter is applied automatically, any query that needs to SEE
+   * soft-deleted rows must opt in with `.withDeleted()` / `withDeleted: true`.
+   */
+  @ApiProperty({ nullable: true, type: String })
+  @DeleteDateColumn({
     name: 'deletedAt',
-    type: 'bigint',
+    type: 'timestamptz',
     nullable: true,
   })
-  public deletedAt: number | null = null;
+  public deletedAt: Date | null = null;
 
   @ApiProperty()
   @Column({
@@ -87,18 +117,4 @@ export abstract class AppBaseEntity {
   })
   @Exclude()
   public deletedById!: string;
-
-  /**
-   * Hooks
-   */
-  @BeforeInsert()
-  public setCreatedAt(): void {
-    this.createdAt = Math.floor(Date.now() / 1000);
-    this.updatedAt = Math.floor(Date.now() / 1000);
-  }
-
-  @BeforeUpdate()
-  public setUpdatedAt(): void {
-    this.updatedAt = Math.floor(Date.now() / 1000);
-  }
 }

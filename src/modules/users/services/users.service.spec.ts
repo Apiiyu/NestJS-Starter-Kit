@@ -22,6 +22,7 @@ const mockQb = {
   take: jest.fn().mockReturnThis(),
   skip: jest.fn().mockReturnThis(),
   cache: jest.fn().mockReturnThis(),
+  withDeleted: jest.fn().mockReturnThis(),
   getManyAndCount: jest.fn().mockResolvedValue([[mockUser], 1]),
 };
 
@@ -131,24 +132,73 @@ describe('UsersService', () => {
   });
 
   describe('delete', () => {
-    it('soft-deletes a user', async () => {
+    it('soft-deletes a user by stamping deletedAt with a Date', async () => {
+      const deletedAt = new Date('2026-08-04T09:15:00.000Z');
       mockRepo.findOne.mockResolvedValue(mockUser);
-      mockRepo.save.mockResolvedValue({ ...mockUser, deletedAt: 1234567 });
+      mockRepo.save.mockResolvedValue({ ...mockUser, deletedAt });
 
       const requestUser: IRequestUser = { id: 'admin', email: 'a@a.com', username: 'admin' };
       const result = await service.delete('uuid-1', requestUser);
-      expect(result.deletedAt).toBeDefined();
+
+      // Assert on what the service actually wrote, not on the canned save() result —
+      // otherwise this test passes even if the merge stamps nothing at all.
+      expect(mockRepo.merge).toHaveBeenCalledWith(
+        mockUser,
+        expect.objectContaining({ deletedAt: expect.any(Date) }),
+      );
+      expect(result.deletedAt).toBeInstanceOf(Date);
     });
   });
 
   describe('restore', () => {
     it('restores a soft-deleted user', async () => {
-      mockRepo.findOne.mockResolvedValue({ ...mockUser, deletedAt: 123 });
+      mockRepo.findOne.mockResolvedValue({
+        ...mockUser,
+        deletedAt: new Date('2026-08-04T09:15:00.000Z'),
+      });
       mockRepo.save.mockResolvedValue({ ...mockUser, deletedAt: null });
 
       const requestUser: IRequestUser = { id: 'admin', email: 'a@a.com', username: 'admin' };
       const result = await service.restore('uuid-1', requestUser);
       expect(result.deletedAt).toBeNull();
+    });
+
+    it('looks the row up with withDeleted, or it could never find one to restore', async () => {
+      mockRepo.findOne.mockResolvedValue({
+        ...mockUser,
+        deletedAt: new Date('2026-08-04T09:15:00.000Z'),
+      });
+      mockRepo.save.mockResolvedValue({ ...mockUser, deletedAt: null });
+
+      const requestUser: IRequestUser = { id: 'admin', email: 'a@a.com', username: 'admin' };
+      await service.restore('uuid-1', requestUser);
+
+      expect(mockRepo.findOne).toHaveBeenCalledWith(expect.objectContaining({ withDeleted: true }));
+    });
+  });
+
+  /**
+   * `@DeleteDateColumn` makes TypeORM filter soft-deleted rows out implicitly. These
+   * two tests pin the explicit opt-outs that keep the delete-aware paths working —
+   * both failures would be silent (an empty page, a spurious NotFound) rather than loud.
+   */
+  describe('soft-delete opt-outs', () => {
+    it('findAll opts out of the implicit deletedAt filter', async () => {
+      mockQb.getManyAndCount.mockResolvedValue([[mockUser], 1]);
+
+      await service.findAll(new ListOptionDto());
+
+      expect(mockQb.withDeleted).toHaveBeenCalled();
+    });
+
+    it('findOneById does not opt out unless asked', async () => {
+      mockRepo.findOne.mockResolvedValue(mockUser);
+
+      await service.findOneById('uuid-1');
+
+      expect(mockRepo.findOne).toHaveBeenCalledWith(
+        expect.objectContaining({ withDeleted: false }),
+      );
     });
   });
 });
