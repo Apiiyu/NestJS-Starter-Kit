@@ -151,9 +151,7 @@
       "!**/configurations/**",
       "!**/database/**",
       "!**/instrumentation.ts",
-      "!**/*.decorator.ts",
-      "!**/strategies/**",
-      "!**/guards/**"
+      "!**/*.decorator.ts"
     ],
     "coverageDirectory": "../coverage",
     "coverageReporters": [
@@ -168,10 +166,10 @@
     },
     "coverageThreshold": {
       "global": {
-        "branches": 39,
-        "functions": 67,
-        "lines": 65,
-        "statements": 64
+        "branches": 69,
+        "functions": 82,
+        "lines": 85,
+        "statements": 85
       }
     },
     "verbose": true,
