@@ -9,6 +9,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { UsersEntity } from './entities/users.entity';
 
 // Services
+import { UsersCacheService } from './services/users-cache.service';
 import { UsersService } from './services/users.service';
 
 @Module({
@@ -18,7 +19,7 @@ import { UsersService } from './services/users.service';
    * Nest never mounted — no route was registered and nothing failed loudly.
    */
   controllers: [UsersController],
-  providers: [UsersService],
+  providers: [UsersService, UsersCacheService],
   exports: [UsersService],
 })
 export class UsersModule {}

@@ -9,6 +9,7 @@ import { USER_ROLE } from '../../../common/constants/role.constant';
 import { ListOptionDto } from '../../../common/dtos/list-options.dto';
 import { PG_UNIQUE_VIOLATION } from '../../../common/helpers/postgres-error.helper';
 import { USERS_UNIQUE_INDEX, UsersEntity } from '../entities/users.entity';
+import { UsersCacheService } from './users-cache.service';
 import { UsersService } from './users.service';
 
 const mockUser: Partial<UsersEntity> = {
@@ -59,6 +60,18 @@ const mockDataSource = {
   transaction: jest.fn(),
 };
 
+const mockUsersCacheService = {
+  listKey: jest.fn(() => 'users:list:key'),
+  idKey: jest.fn((id: string, withDeleted: boolean) => `users:id:${id}:${withDeleted}`),
+  usernameKey: jest.fn((username: string) => `users:username:${username}`),
+  emailKey: jest.fn((email: string) => `users:email:${email}`),
+  get: jest.fn().mockResolvedValue(undefined),
+  set: jest.fn(),
+  setList: jest.fn(),
+  invalidateUser: jest.fn(),
+  invalidateLists: jest.fn(),
+};
+
 describe('UsersService', () => {
   let service: UsersService;
 
@@ -68,11 +81,13 @@ describe('UsersService', () => {
         UsersService,
         { provide: getRepositoryToken(UsersEntity), useValue: mockRepo },
         { provide: DataSource, useValue: mockDataSource },
+        { provide: UsersCacheService, useValue: mockUsersCacheService },
       ],
     }).compile();
 
     service = module.get<UsersService>(UsersService);
     jest.clearAllMocks();
+    mockUsersCacheService.get.mockResolvedValue(undefined);
   });
 
   it('should be defined', () => {
@@ -299,6 +314,168 @@ describe('UsersService', () => {
       expect(mockRepo.findOne).toHaveBeenCalledWith(
         expect.objectContaining({ withDeleted: false }),
       );
+    });
+  });
+
+  describe('update', () => {
+    const requestUser: IRequestUser = {
+      id: 'admin',
+      email: 'a@a.com',
+      username: 'admin',
+      role: USER_ROLE.ADMIN,
+    };
+
+    it('merges the payload, saves within a transaction, and returns the re-fetched user', async () => {
+      mockDataSource.transaction.mockImplementation(
+        async (work: (manager: unknown) => Promise<void>) => {
+          mockRepo.findOneOrFail.mockResolvedValue({ ...mockUser });
+          await work({ save: jest.fn() });
+        },
+      );
+      mockRepo.findOne.mockResolvedValue({ ...mockUser, username: 'renamed' });
+
+      const result = await service.update('uuid-1', { username: 'renamed' }, requestUser);
+
+      expect(mockRepo.merge).toHaveBeenCalledWith(
+        expect.objectContaining({ username: 'testuser' }),
+        { username: 'renamed' },
+      );
+      expect(result.username).toBe('renamed');
+    });
+
+    it('invalidates both the old and new identity keys when username/email change', async () => {
+      mockDataSource.transaction.mockImplementation(
+        async (work: (manager: unknown) => Promise<void>) => {
+          mockRepo.findOneOrFail.mockResolvedValue({ ...mockUser });
+          await work({ save: jest.fn() });
+        },
+      );
+      mockRepo.findOne.mockResolvedValue(mockUser);
+
+      await service.update('uuid-1', { username: 'renamed', email: 'new@test.com' }, requestUser);
+
+      expect(mockUsersCacheService.invalidateUser).toHaveBeenCalledWith([
+        'users:id:uuid-1:false',
+        'users:id:uuid-1:true',
+        'users:username:testuser',
+        'users:email:test@test.com',
+        'users:username:renamed',
+        'users:email:new@test.com',
+      ]);
+      expect(mockUsersCacheService.invalidateLists).toHaveBeenCalled();
+    });
+
+    it('throws BadRequestException when the transaction fails', async () => {
+      mockDataSource.transaction.mockRejectedValue(new Error('DB error'));
+
+      await expect(
+        service.update('uuid-1', { username: 'renamed' }, requestUser),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+  });
+
+  describe('cache', () => {
+    /**
+     * `ClassSerializerInterceptor` only strips `@Exclude()` fields (password here)
+     * from real class instances. A cache hit that returned Keyv's plain deserialized
+     * object instead of a `UsersEntity` would silently leak the password hash to the
+     * client — this pins the rehydration that prevents that.
+     */
+    it('rehydrates a cache hit as a real UsersEntity instance, skipping the database', async () => {
+      mockUsersCacheService.get.mockResolvedValueOnce({ ...mockUser });
+
+      const result = await service.findOneById('uuid-1');
+
+      expect(result).toBeInstanceOf(UsersEntity);
+      expect(mockRepo.findOne).not.toHaveBeenCalled();
+    });
+
+    it('caches a fresh findOneById result on a miss', async () => {
+      mockRepo.findOne.mockResolvedValue(mockUser);
+
+      await service.findOneById('uuid-1');
+
+      expect(mockUsersCacheService.set).toHaveBeenCalledWith('users:id:uuid-1:false', mockUser);
+    });
+
+    it('invalidates the list cache after create', async () => {
+      mockRepo.merge.mockReturnValue(mockUser);
+      mockRepo.save.mockResolvedValue(mockUser);
+
+      await service.create({ username: 'testuser', email: 'test@test.com', password: 'pass' });
+
+      expect(mockUsersCacheService.invalidateLists).toHaveBeenCalled();
+    });
+
+    it('invalidates identity and list caches after delete', async () => {
+      mockRepo.findOne.mockResolvedValue(mockUser);
+      mockRepo.save.mockResolvedValue({ ...mockUser, deletedAt: new Date() });
+
+      const requestUser: IRequestUser = {
+        id: 'admin',
+        email: 'a@a.com',
+        username: 'admin',
+        role: USER_ROLE.ADMIN,
+      };
+      await service.delete('uuid-1', requestUser);
+
+      expect(mockUsersCacheService.invalidateUser).toHaveBeenCalledWith([
+        'users:id:uuid-1:false',
+        'users:id:uuid-1:true',
+        'users:username:testuser',
+        'users:email:test@test.com',
+      ]);
+      expect(mockUsersCacheService.invalidateLists).toHaveBeenCalled();
+    });
+
+    it('invalidates identity and list caches after restore', async () => {
+      mockRepo.findOne.mockResolvedValue({
+        ...mockUser,
+        deletedAt: new Date('2026-08-04T09:15:00.000Z'),
+      });
+      mockRepo.save.mockResolvedValue({ ...mockUser, deletedAt: null });
+
+      const requestUser: IRequestUser = {
+        id: 'admin',
+        email: 'a@a.com',
+        username: 'admin',
+        role: USER_ROLE.ADMIN,
+      };
+      await service.restore('uuid-1', requestUser);
+
+      expect(mockUsersCacheService.invalidateUser).toHaveBeenCalledWith([
+        'users:id:uuid-1:false',
+        'users:id:uuid-1:true',
+        'users:username:testuser',
+        'users:email:test@test.com',
+      ]);
+      expect(mockUsersCacheService.invalidateLists).toHaveBeenCalled();
+    });
+
+    it('rehydrates a findOneByUsername cache hit, skipping the database', async () => {
+      mockUsersCacheService.get.mockResolvedValueOnce({ ...mockUser });
+
+      const result = await service.findOneByUsername('testuser');
+
+      expect(result).toBeInstanceOf(UsersEntity);
+      expect(mockRepo.findOne).not.toHaveBeenCalled();
+    });
+
+    it('rehydrates a findOneByEmail cache hit, skipping the database', async () => {
+      mockUsersCacheService.get.mockResolvedValueOnce({ ...mockUser });
+
+      const result = await service.findOneByEmail('test@test.com');
+
+      expect(result).toBeInstanceOf(UsersEntity);
+      expect(mockRepo.findOne).not.toHaveBeenCalled();
+    });
+
+    it('does not cache a findOneByUsername miss', async () => {
+      mockRepo.findOne.mockResolvedValue(null);
+
+      await service.findOneByUsername('nobody');
+
+      expect(mockUsersCacheService.set).not.toHaveBeenCalled();
     });
   });
 });

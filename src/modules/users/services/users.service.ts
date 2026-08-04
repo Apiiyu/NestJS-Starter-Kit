@@ -12,6 +12,9 @@ import { UpdateUserDto } from '../dtos/update-user.dto';
 // Entities
 import { USERS_UNIQUE_INDEX, UsersEntity } from '../entities/users.entity';
 
+// Class Transformer
+import { plainToInstance } from 'class-transformer';
+
 // Helpers
 import { getUniqueViolationConstraint } from '../../../common/helpers/postgres-error.helper';
 import { QuerySortingHelper } from '../../../common/helpers/query-sorting.helper';
@@ -24,6 +27,9 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+
+// Services
+import { UsersCacheService } from './users-cache.service';
 
 // TypeORM
 import { DataSource, EntityManager, Repository, SelectQueryBuilder } from 'typeorm';
@@ -45,7 +51,25 @@ export class UsersService {
     @InjectRepository(UsersEntity)
     private readonly _usersRepository: Repository<UsersEntity>,
     private readonly _dataSource: DataSource,
+    private readonly _usersCacheService: UsersCacheService,
   ) {}
+
+  /**
+   * @description Rehydrate a cached plain object back into a real `UsersEntity`
+   * instance.
+   *
+   * `ClassSerializerInterceptor` (registered globally in `main.ts`) only strips
+   * `@Exclude()` fields — `password` here, the audit `*ById` columns on
+   * `AppBaseEntity` — from actual class instances. Keyv/Redis round-trips a value
+   * through `JSON.stringify`/`JSON.parse`, which drops the prototype chain entirely;
+   * returning that plain object straight from a cache hit would silently serve the
+   * password hash to the client. `enableImplicitConversion` also restores `Date`
+   * fields (`createdAt` etc.) from the ISO strings JSON produced, using the
+   * `emitDecoratorMetadata` TypeScript reflection this project already has enabled.
+   */
+  private _hydrate(plain: UsersEntity): UsersEntity {
+    return plainToInstance(UsersEntity, plain, { enableImplicitConversion: true });
+  }
 
   /**
    * @description Handle added relationship
@@ -93,6 +117,13 @@ export class UsersService {
     filters: ListOptionDto,
     query: SelectQueryBuilder<UsersEntity>,
   ): Promise<IResultFilter<UsersEntity>> {
+    const cacheKey = this._usersCacheService.listKey(filters as unknown as Record<string, unknown>);
+    const cached = await this._usersCacheService.get<IResultFilter<UsersEntity>>(cacheKey);
+
+    if (cached) {
+      return { ...cached, data: cached.data.map((row) => this._hydrate(row)) };
+    }
+
     try {
       this._addRelations(query);
 
@@ -125,23 +156,20 @@ export class UsersService {
       }
 
       /**
-       * No `.cache(true)` here. An anonymous query cache keys on the generated SQL and
-       * offers no handle to invalidate, so every write in this service — create,
-       * update, delete, restore — would leave the list serving stale rows for the full
-       * cache duration with no way to clear it. That was invisible while the controller
-       * had no routes; it stops being invisible in this commit.
-       *
-       * Caching returns in phase 2b as `@nestjs/cache-manager` with named keys, which
-       * writes can actually evict.
+       * Named cache key (`cacheKey` above, derived from `filters`) rather than the
+       * anonymous `.cache(true)` this replaced (D11) — an anonymous query cache keys on
+       * the generated SQL with no handle to invalidate, so every write in this service
+       * would leave the list serving stale rows for the full cache duration with no way
+       * to clear it. `create`/`update`/`delete`/`restore` all call
+       * `_usersCacheService.invalidateLists()` after their write succeeds.
        */
       const [data, totalData] = await query.getManyAndCount();
       const total = data.length;
+      const result = { data, total, totalData };
 
-      return {
-        data,
-        total,
-        totalData,
-      };
+      await this._usersCacheService.setList(cacheKey, result);
+
+      return result;
     } catch (error: unknown) {
       const err = error as { response?: { error?: string }; message?: string };
       throw new BadRequestException(BAD_REQUEST_MSG, {
@@ -204,7 +232,12 @@ export class UsersService {
       this._usersRepository.merge(model, payload);
 
       // ? Then, we save the model to the database
-      return await this._usersRepository.save(model);
+      const saved = await this._usersRepository.save(model);
+
+      // A new row changes every list's result set, whatever its filters.
+      await this._usersCacheService.invalidateLists();
+
+      return saved;
     } catch (error: unknown) {
       this._throwOnUniqueViolation(error, 'CREATE');
 
@@ -228,12 +261,22 @@ export class UsersService {
         deletedAt: new Date(),
       });
 
-      return await this._usersRepository.save(selectedUser, {
+      const saved = await this._usersRepository.save(selectedUser, {
         data: {
           action: 'DELETE',
           user,
         },
       });
+
+      await this._usersCacheService.invalidateUser([
+        this._usersCacheService.idKey(id, false),
+        this._usersCacheService.idKey(id, true),
+        this._usersCacheService.usernameKey(saved.username),
+        this._usersCacheService.emailKey(saved.email),
+      ]);
+      await this._usersCacheService.invalidateLists();
+
+      return saved;
     } catch (error: unknown) {
       const err = error as { response?: { error?: string }; message?: string };
       throw new BadRequestException(BAD_REQUEST_MSG, {
@@ -272,6 +315,13 @@ export class UsersService {
    * @description Handle business logic for finding a by specific id
    */
   public async findOneById(id: string, withDeleted = false): Promise<UsersEntity> {
+    const cacheKey = this._usersCacheService.idKey(id, withDeleted);
+    const cached = await this._usersCacheService.get<UsersEntity>(cacheKey);
+
+    if (cached) {
+      return this._hydrate(cached);
+    }
+
     const user = await this._usersRepository.findOne({
       where: { id },
       withDeleted,
@@ -281,6 +331,8 @@ export class UsersService {
       throw new NotFoundException(`User with id ${id} not found.`);
     }
 
+    await this._usersCacheService.set(cacheKey, user);
+
     return user;
   }
 
@@ -288,10 +340,28 @@ export class UsersService {
    * @description Handle business logic for finding a user by username
    */
   public async findOneByUsername(username: string): Promise<UsersEntity | null> {
+    const cacheKey = this._usersCacheService.usernameKey(username);
+    const cached = await this._usersCacheService.get<UsersEntity>(cacheKey);
+
+    if (cached) {
+      return this._hydrate(cached);
+    }
+
     try {
-      return await this._usersRepository.findOne({
+      const user = await this._usersRepository.findOne({
         where: { username },
       });
+
+      /**
+       * Only a hit is cached. Caching a miss would risk a just-registered username
+       * still reading as "not found" for up to the TTL — a window that would land
+       * directly on login, right after the account that needs it was created.
+       */
+      if (user) {
+        await this._usersCacheService.set(cacheKey, user);
+      }
+
+      return user;
     } catch (error: unknown) {
       const err = error as { response?: { error?: string }; message?: string };
       throw new NotFoundException(BAD_REQUEST_MSG, {
@@ -305,6 +375,13 @@ export class UsersService {
    * @description Handle business logic for finding a user by email
    */
   public async findOneByEmail(email: string): Promise<UsersEntity | null> {
+    const cacheKey = this._usersCacheService.emailKey(email);
+    const cached = await this._usersCacheService.get<UsersEntity>(cacheKey);
+
+    if (cached) {
+      return this._hydrate(cached);
+    }
+
     const user = await this._usersRepository.findOne({
       where: { email },
     });
@@ -312,6 +389,8 @@ export class UsersService {
     if (!user) {
       return null;
     }
+
+    await this._usersCacheService.set(cacheKey, user);
 
     return user;
   }
@@ -334,12 +413,22 @@ export class UsersService {
         deletedAt: null,
       });
 
-      return await this._usersRepository.save(selectedUser, {
+      const saved = await this._usersRepository.save(selectedUser, {
         data: {
           action: 'RESTORE',
           user,
         },
       });
+
+      await this._usersCacheService.invalidateUser([
+        this._usersCacheService.idKey(id, false),
+        this._usersCacheService.idKey(id, true),
+        this._usersCacheService.usernameKey(saved.username),
+        this._usersCacheService.emailKey(saved.email),
+      ]);
+      await this._usersCacheService.invalidateLists();
+
+      return saved;
     } catch (error: unknown) {
       /**
        * Clearing `deletedAt` moves the row back inside the partial unique indexes, so
@@ -364,6 +453,9 @@ export class UsersService {
     payload: UpdateUserDto,
     user: IRequestUser,
   ): Promise<UsersEntity> {
+    let previousUsername: string | undefined;
+    let previousEmail: string | undefined;
+
     try {
       await this._dataSource.transaction(async (manager: EntityManager) => {
         const selectedUser = await this._usersRepository.findOneOrFail({
@@ -371,6 +463,9 @@ export class UsersService {
             id,
           },
         });
+
+        previousUsername = selectedUser.username;
+        previousEmail = selectedUser.email;
 
         // Merge Two Entity into single one and save it
         this._usersRepository.merge(selectedUser, payload);
@@ -382,6 +477,21 @@ export class UsersService {
           },
         });
       });
+
+      /**
+       * Both the old and new identity values need invalidating — `username`/`email`
+       * can change here (`UpdateUserDto` is a full `PartialType(CreateUserDto)`), and a
+       * stale cache entry under either value would outlive this write.
+       */
+      await this._usersCacheService.invalidateUser([
+        this._usersCacheService.idKey(id, false),
+        this._usersCacheService.idKey(id, true),
+        previousUsername ? this._usersCacheService.usernameKey(previousUsername) : undefined,
+        previousEmail ? this._usersCacheService.emailKey(previousEmail) : undefined,
+        payload.username ? this._usersCacheService.usernameKey(payload.username) : undefined,
+        payload.email ? this._usersCacheService.emailKey(payload.email) : undefined,
+      ]);
+      await this._usersCacheService.invalidateLists();
 
       return this.findOneById(id);
     } catch (error: unknown) {
