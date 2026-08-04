@@ -124,7 +124,17 @@ export class UsersService {
         query.skip(filters.skip);
       }
 
-      const [data, totalData] = await query.cache(true).getManyAndCount();
+      /**
+       * No `.cache(true)` here. An anonymous query cache keys on the generated SQL and
+       * offers no handle to invalidate, so every write in this service — create,
+       * update, delete, restore — would leave the list serving stale rows for the full
+       * cache duration with no way to clear it. That was invisible while the controller
+       * had no routes; it stops being invisible in this commit.
+       *
+       * Caching returns in phase 2b as `@nestjs/cache-manager` with named keys, which
+       * writes can actually evict.
+       */
+      const [data, totalData] = await query.getManyAndCount();
       const total = data.length;
 
       return {
