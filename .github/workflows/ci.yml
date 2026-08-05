@@ -41,12 +41,44 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
+      # setup-bun does not install Node, and jest's bin has a `#!/usr/bin/env node`
+      # shebang, so these suites run on whatever Node the runner image happens to ship.
+      # Node 26 removed `SlowBuffer`, which breaks `buffer-equal-constant-time` (a
+      # transitive dep of passport-jwt) and kills every suite that imports AppModule.
+      # Pinning to .nvmrc (24.11.0) makes CI match `engines.node` instead of tracking
+      # the runner image.
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: '.nvmrc'
       - run: bun install --frozen-lockfile
       - run: bun run test:cov
+      # `--check` verifies without writing: CI must not mutate a committed file. The
+      # baseline is raised locally by `bun run coverage:ratchet` and committed with the
+      # change that earned the improvement.
+      - run: bun run coverage:ratchet -- --check
       - uses: actions/upload-artifact@v5
         with:
           name: coverage
           path: coverage/
+
+  e2e:
+    name: E2E
+    runs-on: ubuntu-latest
+    # Deliberately gates nothing. `lint`, `type-check` and `build` stay independent and
+    # keep running in parallel; a slow container pull here must not stall the fast checks.
+    # ubuntu-latest ships a working Docker daemon, so testcontainers needs no extra setup.
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      # Same Node pin as the `test` job, and for the same passport-jwt reason.
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: '.nvmrc'
+      - run: bun install --frozen-lockfile
+      - run: bun run test:e2e
 
   build:
     name: Build
