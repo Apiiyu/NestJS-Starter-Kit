@@ -43,8 +43,11 @@ export class HealthController {
   @Get('live')
   public live() {
     return {
-      status: 'ok',
-      timestamp: new Date().toISOString(),
+      message: 'Service is live',
+      result: {
+        status: 'ok',
+        timestamp: new Date().toISOString(),
+      },
     };
   }
 }

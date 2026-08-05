@@ -1,24 +1,20 @@
 import './instrumentation';
 
-// Class Validator
-import { useContainer } from 'class-validator';
-
 // Compression
 import compression from 'compression';
 
 // Helmet
 import helmet from 'helmet';
 
-// Interceptors
-import { CustomBaseResponseInterceptor } from './common/interceptors/base-response.interceptor';
-import { ContextInterceptor } from './common/interceptors/context.interceptor';
+// Bootstrap
+import { configureApp } from './common/bootstrap/configure-app';
 
 // Modules
 import { AppModule } from './app.module';
 
 // NestJS Libraries
-import { ClassSerializerInterceptor, Logger, ValidationPipe, VersioningType } from '@nestjs/common';
-import { NestFactory, Reflector } from '@nestjs/core';
+import { Logger } from '@nestjs/common';
+import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 
 // Pino
@@ -41,13 +37,11 @@ async function bootstrap() {
   const appConfigurations: AppConfigurationsService = app.get(AppConfigurationsService);
 
   /**
-   * Global Prefix
+   * Prefix, versioning, global interceptors and validation. Shared with the e2e suite so
+   * the tests cannot exercise a differently-configured application than the deployed one.
    */
-  app.setGlobalPrefix('api');
-  app.enableVersioning({
-    type: VersioningType.URI,
-    defaultVersion: '1',
-  });
+  configureApp(app);
+
   app.enableShutdownHooks();
 
   if (appConfigurations.trustProxy) {
@@ -78,32 +72,6 @@ async function bootstrap() {
       referrerPolicy: { policy: 'no-referrer' },
     }),
   );
-
-  /**
-   * Global Serializer
-   */
-  app.useGlobalInterceptors(new ClassSerializerInterceptor(app.get(Reflector)));
-  app.useGlobalInterceptors(new CustomBaseResponseInterceptor());
-  app.useGlobalInterceptors(app.get(ContextInterceptor));
-
-  /**
-   * Global Validation
-   */
-  app.useGlobalPipes(
-    new ValidationPipe({
-      transform: true,
-      whitelist: true,
-      forbidNonWhitelisted: true,
-      transformOptions: {
-        enableImplicitConversion: true,
-      },
-    }),
-  );
-
-  /**
-   * https://dev.to/avantar/custom-validation-with-database-in-nestjs-gao
-   */
-  useContainer(app.select(AppModule), { fallbackOnErrors: true });
 
   /**
    * Enable Compression

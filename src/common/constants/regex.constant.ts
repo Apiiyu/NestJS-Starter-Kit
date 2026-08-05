@@ -6,20 +6,32 @@ export const REGEX_NO_PERIOD_OR_NEWLINE = /^(?![.\n])/;
 export const REGEX_ANY_CHAR = /.*$/;
 
 /**
- * @description Password policy: no leading period or newline, at least one uppercase and
- * one lowercase letter, and at least one digit *or* one special character.
+ * @description Password composition policy: at least one uppercase letter, at least one
+ * lowercase letter, and at least one digit or special character.
  *
- * Written as a literal rather than assembled from the sources above. Composing it at
- * runtime bought nothing — the parts are never recombined any other way — while making
- * the effective pattern impossible to read at its own definition, and turning a
- * compile-time constant into a `new RegExp` over a built string, which is
- * indistinguishable from building a pattern out of user input.
+ * Composition only. Length is deliberately *not* expressed here — `@MinLength` and
+ * `@MaxLength` on the DTOs enforce it, so a too-short password gets told it is too short
+ * instead of one opaque "does not match the required pattern" that covers four unrelated
+ * rules at once.
  *
- * Piece by piece, in order:
- *   ^(?![.\n])              REGEX_NO_PERIOD_OR_NEWLINE
- *   (?=.*[A-Z])             REGEX_UPPERCASE
- *   (?=.*[a-z])             REGEX_LOWERCASE
- *   (?:(?=.*\d)|(?=.*\W))   REGEX_DIGIT or REGEX_SPECIAL_CHAR
- *   .*$                     REGEX_ANY_CHAR
+ * Two changes from the original, which was assembled at runtime from the sources above:
+ *
+ * - `^(?![.\n])` only rejected a line break in the *first* position while allowing one
+ *   anywhere else in the string. `[^\r\n]+` is what that rule was reaching for.
+ * - Spaces stay legal. A passphrase is a good password, and forbidding whitespace to
+ *   tidy up the pattern would quietly rule the strongest option out.
+ *
+ * The set of required character classes is unchanged, so no existing password that used
+ * to be acceptable becomes unacceptable.
  */
-export const REGEX_PASSWORD = /^(?![.\n])(?=.*[A-Z])(?=.*[a-z])(?:(?=.*\d)|(?=.*\W)).*$/;
+export const REGEX_PASSWORD = /^(?=.*[A-Z])(?=.*[a-z])(?=.*[\d\W])[^\r\n]+$/;
+
+/**
+ * bcrypt hashes at most 72 bytes and silently ignores everything past that — two
+ * passwords sharing their first 72 bytes verify against each other. Capping the input
+ * keeps that truncation from turning into an accidental credential collision.
+ */
+export const PASSWORD_MAX_LENGTH = 72;
+
+/** NIST SP 800-63B's floor for a user-chosen secret. */
+export const PASSWORD_MIN_LENGTH = 8;
