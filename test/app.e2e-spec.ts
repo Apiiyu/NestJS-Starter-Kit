@@ -20,7 +20,7 @@ describe('Health (e2e)', () => {
     }).compile();
 
     app = moduleFixture.createNestApplication();
-    configureApp(app);
+    configureApp(app, AppModule);
     await app.init();
   });
 

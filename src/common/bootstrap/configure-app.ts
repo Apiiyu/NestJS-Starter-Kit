@@ -5,12 +5,9 @@ import { useContainer } from 'class-validator';
 import { CustomBaseResponseInterceptor } from '../interceptors/base-response.interceptor';
 import { ContextInterceptor } from '../interceptors/context.interceptor';
 
-// Modules
-import { AppModule } from '../../app.module';
-
 // NestJS Libraries
 import { ClassSerializerInterceptor, ValidationPipe, VersioningType } from '@nestjs/common';
-import type { INestApplication } from '@nestjs/common';
+import type { INestApplication, Type } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 
 /**
@@ -36,7 +33,7 @@ import { Reflector } from '@nestjs/core';
  * stays in `main.ts` is only what a test has no use for: the listener, CORS, helmet,
  * compression, shutdown hooks and Swagger.
  */
-export const configureApp = (app: INestApplication): void => {
+export const configureApp = (app: INestApplication, containerModule: Type<unknown>): void => {
   app.setGlobalPrefix('api');
   app.enableVersioning({
     type: VersioningType.URI,
@@ -58,7 +55,14 @@ export const configureApp = (app: INestApplication): void => {
     }),
   );
 
-  // Lets custom class-validator constraints resolve their dependencies from the Nest
-  // container. https://dev.to/avantar/custom-validation-with-database-in-nestjs-gao
-  useContainer(app.select(AppModule), { fallbackOnErrors: true });
+  /**
+   * Lets custom class-validator constraints resolve their dependencies from the Nest
+   * container. https://dev.to/avantar/custom-validation-with-database-in-nestjs-gao
+   *
+   * The module is a parameter rather than an import of AppModule. Importing it here drags
+   * the whole application graph — and therefore environment validation — into anything
+   * that so much as imports this file, which is how the unit spec ended up failing in CI
+   * with "APP_ENV is required" while passing locally off a developer's .env.
+   */
+  useContainer(app.select(containerModule), { fallbackOnErrors: true });
 };

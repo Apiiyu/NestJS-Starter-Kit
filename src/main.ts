@@ -40,7 +40,7 @@ async function bootstrap() {
    * Prefix, versioning, global interceptors and validation. Shared with the e2e suite so
    * the tests cannot exercise a differently-configured application than the deployed one.
    */
-  configureApp(app);
+  configureApp(app, AppModule);
 
   app.enableShutdownHooks();
 

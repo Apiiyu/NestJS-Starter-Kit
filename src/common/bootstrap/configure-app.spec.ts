@@ -31,10 +31,15 @@ describe('configureApp', () => {
     return app as unknown as INestApplication & typeof app;
   };
 
+  // Any class will do: `select` is stubbed, and the point is that this file never has to
+  // import AppModule — which would pull the whole application graph, and its environment
+  // validation, into a unit test.
+  class StubModule {}
+
   it('mounts everything under /api with URI versioning defaulting to v1', () => {
     const app = buildApp();
 
-    configureApp(app);
+    configureApp(app, StubModule);
 
     expect(app.setGlobalPrefix).toHaveBeenCalledWith('api');
     expect(app.enableVersioning).toHaveBeenCalledWith({
@@ -46,7 +51,7 @@ describe('configureApp', () => {
   it('registers the serializer, the response envelope and the context interceptor', () => {
     const app = buildApp();
 
-    configureApp(app);
+    configureApp(app, StubModule);
 
     const registered = app.useGlobalInterceptors.mock.calls.flat();
 
@@ -58,7 +63,7 @@ describe('configureApp', () => {
   it('validates with transform, whitelist and forbidNonWhitelisted all on', () => {
     const app = buildApp();
 
-    configureApp(app);
+    configureApp(app, StubModule);
 
     expect(app.useGlobalPipes).toHaveBeenCalledTimes(1);
 

@@ -77,7 +77,7 @@ describe('Authentication (e2e)', () => {
     app = moduleFixture.createNestApplication();
     // The same globals main.ts applies. Without this the suite runs an application with
     // no ValidationPipe, no response interceptor and no versioning — see configure-app.ts.
-    configureApp(app);
+    configureApp(app, AppModule);
     await app.init();
   });
 
