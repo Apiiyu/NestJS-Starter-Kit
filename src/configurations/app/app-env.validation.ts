@@ -44,11 +44,24 @@ type AppEnvironmentVariables = {
   THROTTLE_TTL?: string;
 };
 
+/**
+ * @description Read one environment variable without indexing the bag by a variable.
+ *
+ * `environment` is built from `process.env`, so its keys are outside this file's control
+ * and `environment[key]` also answers for inherited members. Matching over own entries
+ * keeps the lookup to what was actually supplied. This runs a handful of times at
+ * bootstrap over roughly thirty keys, so the linear scan costs nothing worth measuring.
+ */
+const readEnvironmentValue = (
+  environment: Partial<AppEnvironmentVariables>,
+  key: keyof AppEnvironmentVariables,
+): string | undefined => Object.entries(environment).find(([name]) => name === key)?.[1];
+
 const assertRequired = (
   environment: Partial<AppEnvironmentVariables>,
   key: keyof AppEnvironmentVariables,
 ): string => {
-  const value = environment[key];
+  const value = readEnvironmentValue(environment, key);
 
   if (!value || value.trim().length === 0) {
     throw new Error(`Environment variable ${key} is required.`);
@@ -62,7 +75,7 @@ const parsePositiveInteger = (
   key: keyof AppEnvironmentVariables,
   fallback?: number,
 ): number => {
-  const rawValue = environment[key];
+  const rawValue = readEnvironmentValue(environment, key);
 
   if (!rawValue || rawValue.trim().length === 0) {
     if (fallback !== undefined) {
@@ -86,7 +99,7 @@ const parseBoolean = (
   key: keyof AppEnvironmentVariables,
   fallback: boolean,
 ): boolean => {
-  const rawValue = environment[key];
+  const rawValue = readEnvironmentValue(environment, key);
 
   if (!rawValue || rawValue.trim().length === 0) {
     return fallback;
@@ -107,7 +120,7 @@ const parseOptionalUrl = (
   environment: Partial<AppEnvironmentVariables>,
   key: keyof AppEnvironmentVariables,
 ): string | undefined => {
-  const rawValue = environment[key];
+  const rawValue = readEnvironmentValue(environment, key);
 
   if (!rawValue || rawValue.trim().length === 0) {
     return undefined;
@@ -124,7 +137,7 @@ const parseOptionalLogLevel = (
   environment: Partial<AppEnvironmentVariables>,
   key: keyof AppEnvironmentVariables,
 ): string | undefined => {
-  const rawValue = environment[key];
+  const rawValue = readEnvironmentValue(environment, key);
 
   if (!rawValue || rawValue.trim().length === 0) {
     return undefined;

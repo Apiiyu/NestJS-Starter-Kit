@@ -3,7 +3,7 @@ import type { DataSource } from 'typeorm';
 import type { Seeder } from 'typeorm-extension';
 
 export default class UsersSeeder implements Seeder {
-  public async run(dataSource: DataSource): Promise<any> {
+  public async run(dataSource: DataSource): Promise<void> {
     // Run you query here
     await dataSource.query(`
       INSERT INTO

@@ -10,9 +10,14 @@ type RequestWithContext = Request & {
   requestId?: string;
 };
 
-const getHeaderValue = (headers: IncomingHttpHeaders, headerName: string): string | undefined => {
-  const headerValue = headers[headerName];
-
+/**
+ * Takes the header value rather than the header bag plus a name to look up in it. A
+ * repeated header arrives as an array and only the first entry is meaningful here; that
+ * is the whole job. Doing the lookup inside meant every call site indexed the bag with a
+ * variable — a wider contract than this needs, and indistinguishable to a reader or a
+ * linter from indexing an object with untrusted input.
+ */
+const firstHeaderValue = (headerValue: IncomingHttpHeaders[string]): string | undefined => {
   if (Array.isArray(headerValue)) {
     return headerValue[0];
   }
@@ -28,9 +33,9 @@ export class RequestContextMiddleware implements NestMiddleware {
     const requestId =
       request.requestId ??
       request.id ??
-      getHeaderValue(request.headers, 'x-request-id') ??
+      firstHeaderValue(request.headers['x-request-id']) ??
       randomUUID();
-    const correlationId = getHeaderValue(request.headers, 'x-correlation-id') ?? requestId;
+    const correlationId = firstHeaderValue(request.headers['x-correlation-id']) ?? requestId;
 
     request.requestId = requestId;
     request.correlationId = correlationId;

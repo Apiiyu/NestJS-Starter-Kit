@@ -70,13 +70,19 @@ export type ErrorCode = (typeof ERROR_CODE)[keyof typeof ERROR_CODE];
  * @description Default code for a given HTTP status, used when a thrown exception
  * carries no explicit code of its own.
  */
-export const ERROR_CODE_BY_STATUS: Readonly<Record<number, ErrorCode>> = {
-  400: ERROR_CODE.BAD_REQUEST,
-  401: ERROR_CODE.UNAUTHORIZED,
-  403: ERROR_CODE.FORBIDDEN,
-  404: ERROR_CODE.NOT_FOUND,
-  409: ERROR_CODE.CONFLICT,
-  422: ERROR_CODE.VALIDATION_FAILED,
-  429: ERROR_CODE.RATE_LIMITED,
-  500: ERROR_CODE.INTERNAL_ERROR,
-};
+/**
+ * A Map rather than a record: the only consumer looks this up by a status number taken
+ * from a thrown exception, and indexing an object with a value from outside is both a
+ * wider door than a lookup table needs and a standing lint warning. `.get()` answers for
+ * the eight entries below and nothing else.
+ */
+export const ERROR_CODE_BY_STATUS: ReadonlyMap<number, ErrorCode> = new Map([
+  [400, ERROR_CODE.BAD_REQUEST],
+  [401, ERROR_CODE.UNAUTHORIZED],
+  [403, ERROR_CODE.FORBIDDEN],
+  [404, ERROR_CODE.NOT_FOUND],
+  [409, ERROR_CODE.CONFLICT],
+  [422, ERROR_CODE.VALIDATION_FAILED],
+  [429, ERROR_CODE.RATE_LIMITED],
+  [500, ERROR_CODE.INTERNAL_ERROR],
+]);

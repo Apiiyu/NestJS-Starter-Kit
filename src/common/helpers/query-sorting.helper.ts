@@ -5,6 +5,15 @@ export const QuerySortingHelper = <T extends object>(
   sortBy: string[],
   permitColumns: Record<string, string>,
 ): SelectQueryBuilder<T> => {
+  /**
+   * A Map, not the record itself. `column` comes straight from the query string, and a
+   * plain `permitColumns[column]` also finds inherited members — `?sortBy=constructor|asc`
+   * resolves to a truthy function and would reach `orderBy()` as if it were a permitted
+   * column. `Object.entries` copies own enumerable properties only, so the Map cannot
+   * answer for anything the caller did not explicitly permit.
+   */
+  const permittedColumns = new Map(Object.entries(permitColumns));
+
   sortBy.forEach((value) => {
     if (value) {
       const [column, direction] = value.split('|');
@@ -12,16 +21,12 @@ export const QuerySortingHelper = <T extends object>(
         ? `${direction}`.toUpperCase()
         : 'ASC';
 
-      /**
-       * `Object.hasOwn` rather than a truthiness check on the lookup. `column` comes
-       * straight from the query string, and a plain `permitColumns[column]` also finds
-       * inherited members: `?sortBy=constructor|asc` resolves to a truthy function, which
-       * then reaches `orderBy()` as if it were a permitted column name. Own properties
-       * only is what makes this map an allowlist rather than a suggestion.
-       */
-      if (column && Object.hasOwn(permitColumns, column)) {
-        // eslint-disable-next-line security/detect-object-injection -- guarded above.
-        queryBuilder.orderBy(permitColumns[column], sortDirection as 'ASC' | 'DESC');
+      // No guard on `column` being empty: `value` is already known non-empty above, and
+      // an unmapped or empty name simply misses in the Map.
+      const permittedColumn = permittedColumns.get(column);
+
+      if (permittedColumn) {
+        queryBuilder.orderBy(permittedColumn, sortDirection as 'ASC' | 'DESC');
       }
     }
   });

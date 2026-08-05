@@ -43,7 +43,13 @@ const METRICS = ['branches', 'functions', 'lines', 'statements'] as const;
 
 type Metric = (typeof METRICS)[number];
 
-type CoverageBaseline = Record<Metric, number>;
+/**
+ * A Map, not a record. Every read here is keyed by a variable walked out of METRICS, and
+ * indexing an object that way is indistinguishable — to a reader or to the linter — from
+ * indexing it with something untrusted. The JSON on disk is still a plain object; the
+ * conversion happens at that boundary and nowhere else.
+ */
+type CoverageBaseline = Map<Metric, number>;
 
 interface IRegression {
   baseline: number;
@@ -92,11 +98,11 @@ const extractMetrics = (source: unknown, label: string, readPct: boolean): Cover
     return die(`${label} is not an object.`);
   }
 
-  const record = source as Record<string, unknown>;
-  const extracted = {} as CoverageBaseline;
+  const entries = new Map(Object.entries(source as Record<string, unknown>));
+  const extracted: CoverageBaseline = new Map();
 
   for (const metric of METRICS) {
-    const rawEntry = record[metric];
+    const rawEntry = entries.get(metric);
     const rawValue = readPct ? (rawEntry as Record<string, unknown> | undefined)?.pct : rawEntry;
 
     if (typeof rawValue !== 'number' || !Number.isFinite(rawValue)) {
@@ -110,10 +116,25 @@ const extractMetrics = (source: unknown, label: string, readPct: boolean): Cover
       return die(`${label} reports "${metric}" as ${rawValue}, which is not a percentage.`);
     }
 
-    extracted[metric] = rawValue;
+    extracted.set(metric, rawValue);
   }
 
   return extracted;
+};
+
+/**
+ * Every metric is proven present by `extractMetrics` before a baseline exists, so a miss
+ * here is a bug in this file rather than bad input — hence a throw, not a `die` with a
+ * remedy the developer cannot act on.
+ */
+const metricValue = (coverage: CoverageBaseline, metric: Metric): number => {
+  const value = coverage.get(metric);
+
+  if (value === undefined) {
+    throw new Error(`coverage-ratchet: "${metric}" missing from a validated coverage set.`);
+  }
+
+  return value;
 };
 
 const readCurrentCoverage = (): CoverageBaseline => {
@@ -149,7 +170,7 @@ const writeBaseline = (baseline: CoverageBaseline): void => {
   // Sorted keys and a trailing newline keep the committed diff to the lines that actually
   // moved, rather than reordering the file on every write.
   const serialised = JSON.stringify(
-    Object.fromEntries(METRICS.map((metric) => [metric, baseline[metric]])),
+    Object.fromEntries(METRICS.map((metric) => [metric, metricValue(baseline, metric)])),
     null,
     2,
   );
@@ -158,14 +179,18 @@ const writeBaseline = (baseline: CoverageBaseline): void => {
 };
 
 const findRegressions = (baseline: CoverageBaseline, current: CoverageBaseline): IRegression[] =>
-  METRICS.filter((metric) => current[metric] < baseline[metric] - TOLERANCE).map((metric) => ({
-    baseline: baseline[metric],
-    current: current[metric],
+  METRICS.filter(
+    (metric) => metricValue(current, metric) < metricValue(baseline, metric) - TOLERANCE,
+  ).map((metric) => ({
+    baseline: metricValue(baseline, metric),
+    current: metricValue(current, metric),
     metric,
   }));
 
 const findImprovements = (baseline: CoverageBaseline, current: CoverageBaseline): Metric[] =>
-  METRICS.filter((metric) => current[metric] > baseline[metric] + TOLERANCE);
+  METRICS.filter(
+    (metric) => metricValue(current, metric) > metricValue(baseline, metric) + TOLERANCE,
+  );
 
 const formatRow = (metric: Metric, value: number): string =>
   `  ${metric.padEnd(11)} ${value.toFixed(2)}%`;
@@ -187,7 +212,9 @@ const main = (): void => {
 
     writeBaseline(current);
     console.log(`✔ coverage-ratchet: established a new baseline at ${BASELINE_PATH}`);
-    console.log(METRICS.map((metric) => formatRow(metric, current[metric])).join('\n'));
+    console.log(
+      METRICS.map((metric) => formatRow(metric, metricValue(current, metric))).join('\n'),
+    );
     console.log('  Commit this file so future runs have something to ratchet against.');
 
     return;
@@ -218,7 +245,9 @@ const main = (): void => {
 
   if (improvements.length === 0) {
     console.log('✔ coverage-ratchet: coverage holds at the baseline.');
-    console.log(METRICS.map((metric) => formatRow(metric, current[metric])).join('\n'));
+    console.log(
+      METRICS.map((metric) => formatRow(metric, metricValue(current, metric))).join('\n'),
+    );
 
     return;
   }
@@ -229,10 +258,10 @@ const main = (): void => {
     // Only the improved metrics move. Copying `current` wholesale would also drag any
     // metric that fell inside TOLERANCE downward, letting coverage erode a hundredth at a
     // time across many commits — a ratchet that leaks.
-    const nextBaseline = { ...baseline };
+    const nextBaseline = new Map(baseline);
 
     for (const metric of improvements) {
-      nextBaseline[metric] = current[metric];
+      nextBaseline.set(metric, metricValue(current, metric));
     }
 
     writeBaseline(nextBaseline);
@@ -240,10 +269,12 @@ const main = (): void => {
   }
 
   for (const metric of improvements) {
-    const delta = (current[metric] - baseline[metric]).toFixed(2);
+    const baselineValue = metricValue(baseline, metric);
+    const currentValue = metricValue(current, metric);
+    const delta = (currentValue - baselineValue).toFixed(2);
 
     console.log(
-      `  ${metric.padEnd(11)} ${baseline[metric].toFixed(2)}% → ${current[metric].toFixed(2)}% ` +
+      `  ${metric.padEnd(11)} ${baselineValue.toFixed(2)}% → ${currentValue.toFixed(2)}% ` +
         `(up ${delta} points)`,
     );
   }

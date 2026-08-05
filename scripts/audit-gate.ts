@@ -102,7 +102,7 @@ const readAuditReport = (): Record<string, IAdvisory[]> => {
   }
 };
 
-const readAllowlist = (): Record<string, IAllowlistEntry> => {
+const readAllowlist = (): Map<string, IAllowlistEntry> => {
   let rawContent: string;
 
   try {
@@ -125,25 +125,30 @@ const readAllowlist = (): Record<string, IAllowlistEntry> => {
     return die(`${ALLOWLIST_PATH} has no "advisories" object.`);
   }
 
-  const entries = advisories as Record<string, Partial<IAllowlistEntry>>;
+  const entries = new Map(Object.entries(advisories as Record<string, Partial<IAllowlistEntry>>));
 
-  for (const [ghsaId, entry] of Object.entries(entries)) {
+  for (const [ghsaId, entry] of entries) {
     // An exemption without a reason and an expiry is just a suppression. Rejecting it
-    // here keeps the file reviewable: every line has to say why, and until when.
-    for (const field of ['expires', 'package', 'reason'] as const) {
-      const value = entry[field];
+    // here keeps the file reviewable: every line has to say why, and until when. The
+    // fields are destructured rather than walked by name so nothing indexes by variable.
+    const { expires, package: packageName, reason } = entry;
 
+    for (const [field, value] of [
+      ['expires', expires],
+      ['package', packageName],
+      ['reason', reason],
+    ] as const) {
       if (typeof value !== 'string' || value.length === 0) {
         die(`allowlist entry "${ghsaId}" is missing a "${field}".`);
       }
     }
 
-    if (Number.isNaN(Date.parse(entry.expires as string))) {
-      die(`allowlist entry "${ghsaId}" has an unparseable expires date "${entry.expires}".`);
+    if (Number.isNaN(Date.parse(expires as string))) {
+      die(`allowlist entry "${ghsaId}" has an unparseable expires date "${expires}".`);
     }
   }
 
-  return entries as Record<string, IAllowlistEntry>;
+  return entries as Map<string, IAllowlistEntry>;
 };
 
 /** GHSA ids are the stable identifier across registries; the numeric `id` is not. */
@@ -179,13 +184,13 @@ const main = (): void => {
   const findings = collectBlockingFindings(readAuditReport());
 
   const seenGhsaIds = new Set(findings.map((finding) => finding.ghsaId));
-  const unexpected = findings.filter((finding) => !(finding.ghsaId in allowlist));
+  const unexpected = findings.filter((finding) => !allowlist.has(finding.ghsaId));
 
   const today = new Date();
-  const expired = Object.entries(allowlist).filter(
+  const expired = [...allowlist].filter(
     ([ghsaId, entry]) => seenGhsaIds.has(ghsaId) && new Date(entry.expires) < today,
   );
-  const stale = Object.keys(allowlist).filter((ghsaId) => !seenGhsaIds.has(ghsaId));
+  const stale = [...allowlist.keys()].filter((ghsaId) => !seenGhsaIds.has(ghsaId));
 
   if (unexpected.length > 0) {
     console.error(`✖ audit-gate: ${unexpected.length} un-triaged high/critical advisory(ies).`);
@@ -215,7 +220,7 @@ const main = (): void => {
     console.error(`\n✖ audit-gate: ${stale.length} allowlist entry(ies) no longer match anything.`);
 
     for (const ghsaId of stale) {
-      console.error(`  ${ghsaId} (${allowlist[ghsaId].package})`);
+      console.error(`  ${ghsaId} (${allowlist.get(ghsaId)?.package})`);
     }
 
     console.error(

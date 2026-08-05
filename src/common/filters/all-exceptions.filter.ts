@@ -92,7 +92,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
       }
     }
 
-    return ERROR_CODE_BY_STATUS[status] ?? ERROR_CODE.INTERNAL_ERROR;
+    return ERROR_CODE_BY_STATUS.get(status) ?? ERROR_CODE.INTERNAL_ERROR;
   }
 
   public catch(exception: unknown, host: ArgumentsHost): void {

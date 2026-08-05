@@ -12,9 +12,11 @@ type RequestIdentifierSource = {
   requestId?: unknown;
 };
 
-const getHeaderValue = (headers: IncomingHttpHeaders, headerName: string): string | undefined => {
-  const headerValue = headers[headerName];
-
+/**
+ * Takes the header value rather than the header bag plus a name to look up in it, so the
+ * call site uses a literal key. See the matching helper in request-context.middleware.ts.
+ */
+const firstHeaderValue = (headerValue: IncomingHttpHeaders[string]): string | undefined => {
   if (Array.isArray(headerValue)) {
     return headerValue[0];
   }
@@ -35,7 +37,7 @@ const resolveRequestId = (request: RequestIdentifierSource): string => {
     return String(request.id);
   }
 
-  return getHeaderValue(request.headers, 'x-request-id') ?? randomUUID();
+  return firstHeaderValue(request.headers['x-request-id']) ?? randomUUID();
 };
 
 @Module({
@@ -56,7 +58,7 @@ const resolveRequestId = (request: RequestIdentifierSource): string => {
         redact: ['req.headers.authorization', 'req.body.password'],
         customProps: (request) => ({
           correlationId:
-            getHeaderValue(request.headers, 'x-correlation-id') ?? resolveRequestId(request),
+            firstHeaderValue(request.headers['x-correlation-id']) ?? resolveRequestId(request),
           requestId: resolveRequestId(request),
         }),
       },
