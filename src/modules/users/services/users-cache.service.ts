@@ -33,12 +33,16 @@ export class UsersCacheService {
   constructor(@Inject(CACHE_MANAGER) private readonly _cache: Cache) {}
 
   public listKey(filters: Record<string, unknown>): string {
-    const sorted = Object.keys(filters)
-      .sort()
-      .reduce<Record<string, unknown>>((acc, key) => {
-        acc[key] = filters[key];
-        return acc;
-      }, {});
+    /**
+     * `Object.fromEntries` rather than assigning into an accumulator. A filter key of
+     * `__proto__` — reachable, since these come from the query string — would be swallowed
+     * by `acc[key] = ...` as a prototype assignment instead of becoming a key, so two
+     * different filter sets would serialise identically and collide on one cache entry.
+     * fromEntries defines own properties, which keeps the key faithful to the input.
+     */
+    const sorted = Object.fromEntries(
+      Object.entries(filters).sort(([left], [right]) => left.localeCompare(right)),
+    );
 
     return `users:list:${createHash('sha1').update(JSON.stringify(sorted)).digest('hex')}`;
   }
