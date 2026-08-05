@@ -44,6 +44,8 @@
     "test:debug": "node --inspect-brk node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "test:e2e:coverage": "jest --config ./test/jest-e2e.json --coverage",
+    "test:mutation": "stryker run",
+    "test:mutation:dry": "stryker run --dryRunOnly",
     "prepare": "husky"
   },
   "dependencies": {
@@ -100,6 +102,8 @@
     "@nestjs/cli": "11.0.24",
     "@nestjs/schematics": "11.1.0",
     "@nestjs/testing": "11.1.28",
+    "@stryker-mutator/core": "^9.6.1",
+    "@stryker-mutator/jest-runner": "^9.6.1",
     "@swc/core": "1.15.47",
     "@swc/jest": "0.2.39",
     "@types/bcrypt": "6.0.0",
