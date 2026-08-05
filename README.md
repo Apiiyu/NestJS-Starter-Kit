@@ -1,5 +1,9 @@
 # 🌟 NestJS Starter Kit
 
+[![CI](https://github.com/Apiiyu/NestJS-Starter-Kit/actions/workflows/ci.yml/badge.svg)](https://github.com/Apiiyu/NestJS-Starter-Kit/actions/workflows/ci.yml)
+[![Security](https://github.com/Apiiyu/NestJS-Starter-Kit/actions/workflows/security.yml/badge.svg)](https://github.com/Apiiyu/NestJS-Starter-Kit/actions/workflows/security.yml)
+[![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/Apiiyu/NestJS-Starter-Kit/badge)](https://securityscorecards.dev/viewer/?uri=github.com/Apiiyu/NestJS-Starter-Kit)
+
 This project built with NestJS, TypeScript, and much more.
 
 ## Starter Introduction

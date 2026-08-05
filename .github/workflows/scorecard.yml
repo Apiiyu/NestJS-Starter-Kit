@@ -1,0 +1,52 @@
+name: Scorecard
+
+on:
+  # Scorecard grades repository *settings and history* — branch protection, review
+  # practice, workflow permissions — not the diff. A per-PR run would mostly re-measure
+  # things a PR cannot change, so this is scheduled, plus a push to the default branch so
+  # a settings change is reflected without waiting a week.
+  schedule:
+    - cron: '41 5 * * 2'
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions: read-all
+
+jobs:
+  analysis:
+    name: Scorecard Analysis
+    runs-on: ubuntu-latest
+    permissions:
+      # Uploads the SARIF result into the repository's security tab.
+      security-events: write
+      # Lets the action read the workflow run history it grades.
+      actions: read
+      contents: read
+      # Publishes the results so shields.io can render the badge in the README. Without
+      # it the analysis still runs, but the badge has nothing to read.
+      id-token: write
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - uses: ossf/scorecard-action@v2.4.3
+        with:
+          results_file: results.sarif
+          results_format: sarif
+          # Required for the public API that backs the badge. This publishes the check
+          # scores, not the repository contents.
+          publish_results: true
+
+      # The security tab shows the current state; the artifact is what makes a regression
+      # traceable to a specific run.
+      - uses: actions/upload-artifact@v5
+        with:
+          name: scorecard-results
+          path: results.sarif
+          retention-days: 5
+
+      - uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: results.sarif
