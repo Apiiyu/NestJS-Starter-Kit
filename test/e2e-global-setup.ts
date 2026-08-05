@@ -107,6 +107,7 @@ const applyE2EEnvironment = (
     MAIL_PASSWORD: '',
     MAIL_PORT: '2525',
     MAIL_USERNAME: '',
+    METRICS_API_KEY: `${randomUUID()}${randomUUID()}`,
     OTEL_ENABLED: 'false',
     OTEL_METRICS_ENABLED: 'false',
     QUEUE_REDIS_HOST: redisHost,

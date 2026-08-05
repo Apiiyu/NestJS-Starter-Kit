@@ -5,6 +5,10 @@ import type { TestingModule } from '@nestjs/testing';
 // Express
 import type { NextFunction, Request, Response } from 'express';
 
+// OpenTelemetry
+import { trace } from '@opentelemetry/api';
+import type { Span } from '@opentelemetry/api';
+
 // Request Context
 import { RequestContextMiddleware } from './request-context.middleware';
 import { RequestContextService } from './request-context.service';
@@ -131,5 +135,21 @@ describe('RequestContextMiddleware', () => {
       next,
     );
     expect(next).toHaveBeenCalledTimes(1);
+  });
+
+  it('links the active OpenTelemetry span to request and correlation identifiers', () => {
+    const setAttributes = jest.fn();
+    jest.spyOn(trace, 'getActiveSpan').mockReturnValue({ setAttributes } as unknown as Span);
+    const request = buildRequest({
+      headers: { 'x-correlation-id': 'correlation-7' },
+      requestId: 'request-7',
+    });
+
+    middleware.use(request, response, next);
+
+    expect(setAttributes).toHaveBeenCalledWith({
+      'app.correlation_id': 'correlation-7',
+      'app.request_id': 'request-7',
+    });
   });
 });
