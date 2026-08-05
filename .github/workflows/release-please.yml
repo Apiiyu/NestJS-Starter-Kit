@@ -1,0 +1,24 @@
+name: Release Please
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+concurrency:
+  group: release-please-main
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Prepare GitHub release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Open or update the release pull request
+        uses: googleapis/release-please-action@v4
+        with:
+          release-type: node
