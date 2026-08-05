@@ -31,6 +31,7 @@ export class AuthenticationController {
   @HttpCode(200)
   @ApiOperation({
     summary: 'Login with username and password',
+    description: 'Authenticates local credentials and returns an access and refresh token pair.',
   })
   @ApiBaseResponse(LoginWithAccessToken)
   @UseGuards(AuthenticationLocalGuard)
@@ -46,6 +47,7 @@ export class AuthenticationController {
   @Post('register')
   @ApiOperation({
     summary: 'Register with email',
+    description: 'Creates a user account after validating and hashing its password.',
   })
   @ApiBaseResponse(UsersEntity)
   public async create(@Body() requestBody: RegisterEmailDto) {
@@ -66,6 +68,7 @@ export class AuthenticationController {
   @HttpCode(200)
   @ApiOperation({
     summary: 'Exchange a refresh token for a new access and refresh token pair',
+    description: 'Rotates a valid refresh token without requiring a live access token.',
   })
   @ApiBaseResponse(LoginWithAccessToken)
   public async refresh(@Body() requestBody: RefreshTokenDto) {
@@ -87,6 +90,7 @@ export class AuthenticationController {
   @HttpCode(200)
   @ApiOperation({
     summary: 'Revoke a refresh token',
+    description: 'Invalidates a refresh-token session and remains idempotent for unknown tokens.',
   })
   public async logout(@Body() requestBody: RefreshTokenDto) {
     const result = await this._authenticationService.logout(requestBody.refreshToken);
@@ -100,6 +104,10 @@ export class AuthenticationController {
   @UseGuards(AuthenticationJWTGuard)
   @Get('profile')
   @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Get the authenticated user profile',
+    description: 'Returns the user identified by the bearer access token.',
+  })
   public async getProfile(@Req() req: ICustomRequestHeaders) {
     const result = await this._usersService.findOneById(req.user.id);
 

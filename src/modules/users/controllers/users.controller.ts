@@ -84,6 +84,7 @@ export class UsersController {
   @Roles(USER_ROLE.ADMIN)
   @ApiOperation({
     summary: 'List users, optionally including soft-deleted ones',
+    description: 'Allows administrators to page through active and, when requested, deleted users.',
   })
   @ApiBaseArrayResponse(UsersEntity)
   public async findAll(@Query() filters: ListOptionDto) {
@@ -98,6 +99,7 @@ export class UsersController {
   @Get(':id')
   @ApiOperation({
     summary: 'Get one user — admins any, everyone else only themselves',
+    description: 'Returns one user after enforcing self-or-administrator authorization.',
   })
   @ApiBaseResponse(UsersEntity)
   public async findOne(@Param('id', ParseUUIDPipe) id: string, @Req() req: ICustomRequestHeaders) {
@@ -114,6 +116,7 @@ export class UsersController {
   @Patch(':id')
   @ApiOperation({
     summary: 'Update a user. The password is not changeable here — see UpdateUserProfileDto',
+    description: 'Updates profile fields after enforcing self-or-administrator authorization.',
   })
   @ApiBaseResponse(UsersEntity)
   public async update(
@@ -135,6 +138,8 @@ export class UsersController {
   @Roles(USER_ROLE.ADMIN)
   @ApiOperation({
     summary: 'Soft-delete a user, freeing their email and username for reuse',
+    description:
+      'Allows an administrator to soft-delete a user while preserving its audit history.',
   })
   @ApiBaseResponse(UsersEntity)
   public async delete(@Param('id', ParseUUIDPipe) id: string, @Req() req: ICustomRequestHeaders) {
@@ -156,6 +161,7 @@ export class UsersController {
   @HttpCode(200)
   @ApiOperation({
     summary: 'Restore a soft-deleted user',
+    description: 'Allows an administrator to restore a user when its unique identity is available.',
   })
   @ApiBaseResponse(UsersEntity)
   public async restore(@Param('id', ParseUUIDPipe) id: string, @Req() req: ICustomRequestHeaders) {

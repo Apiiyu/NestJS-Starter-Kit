@@ -34,6 +34,108 @@ jobs:
       - name: Enforce architecture boundaries
         run: bun run architecture:check
 
+  sdk:
+    name: OpenAPI contract and TypeScript SDK
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: nestjs_starter_kit_sdk
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d nestjs_starter_kit_sdk"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7.4-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis-queue:
+        image: redis:7.4-alpine
+        ports:
+          - 6380:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      API_EXTERNAL_BASE_URL: http://127.0.0.1:1337
+      APP_ENV: test
+      APP_HOST: 127.0.0.1
+      APP_NAME: NestJS Starter Kit
+      APP_PORT: 1337
+      APP_TRUST_PROXY: 'false'
+      DATABASE_HOST: 127.0.0.1
+      DATABASE_LOGGING: 'false'
+      DATABASE_MIGRATIONS_RUN: 'false'
+      DATABASE_NAME: nestjs_starter_kit_sdk
+      DATABASE_PASSWORD: postgres
+      DATABASE_PORT: 5432
+      DATABASE_SYNCHRONIZE: 'false'
+      DATABASE_USER: postgres
+      JWT_EXPIRES_IN: 15m
+      JWT_ISSUER: nestjs-starter-kit-sdk
+      JWT_REFRESH_EXPIRES_IN: 7d
+      MAIL_FROM: noreply@example.test
+      MAIL_HOST: 127.0.0.1
+      MAIL_PORT: 2525
+      OTEL_ENABLED: 'false'
+      OTEL_METRICS_ENABLED: 'false'
+      QUEUE_REDIS_HOST: 127.0.0.1
+      QUEUE_REDIS_PORT: 6380
+      REDIS_HOST: 127.0.0.1
+      REDIS_PORT: 6379
+      THROTTLE_LIMIT: 1000
+      THROTTLE_TTL: 60000
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.12
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Generate ephemeral credentials
+        run: |
+          echo "JWT_SECRET=$(openssl rand -hex 32)" >> "$GITHUB_ENV"
+          echo "METRICS_API_KEY=$(openssl rand -hex 32)" >> "$GITHUB_ENV"
+
+      - name: Apply database migrations
+        run: bun run migration:run
+
+      - name: Generate and lint SDK
+        run: bun run sdk:build
+
+      - name: Upload OpenAPI and SDK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: openapi-typescript-sdk
+          path: |
+            artifacts/openapi.json
+            artifacts/sdk/
+          if-no-files-found: error
+          retention-days: 14
+
   lint:
     name: Lint
     runs-on: ubuntu-latest

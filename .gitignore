@@ -31,6 +31,9 @@ lerna-debug.log*
 # Generated supply-chain artifacts (rebuilt by `bun run sbom` / the release workflow)
 /sbom.cdx.json
 
+# Generated API contract and typed SDK (uploaded by CI)
+/artifacts
+
 # IDEs and editors
 /.idea
 .project

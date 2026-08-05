@@ -10,6 +10,7 @@ export const ApiBaseArrayResponse = <TModel extends Type<unknown>>(model: TModel
       schema: {
         allOf: [
           {
+            type: 'object',
             properties: {
               statusCode: {
                 type: 'number',
@@ -17,13 +18,6 @@ export const ApiBaseArrayResponse = <TModel extends Type<unknown>>(model: TModel
               message: {
                 type: 'string',
               },
-              data: {
-                type: 'array',
-              },
-            },
-          },
-          {
-            properties: {
               data: {
                 type: 'array',
                 items: { $ref: getSchemaPath(model) },

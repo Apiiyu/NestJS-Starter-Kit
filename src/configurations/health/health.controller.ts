@@ -1,6 +1,6 @@
 // NestJS Libraries
 import { Controller, Get, VERSION_NEUTRAL } from '@nestjs/common';
-import { ApiTags } from '@nestjs/swagger';
+import { ApiOperation, ApiTags } from '@nestjs/swagger';
 
 // Terminus
 import { HealthCheck, HealthCheckService, TypeOrmHealthIndicator } from '@nestjs/terminus';
@@ -15,6 +15,10 @@ export class HealthController {
 
   @Get()
   @HealthCheck()
+  @ApiOperation({
+    summary: 'Check service readiness',
+    description: 'Alias for the database-backed readiness probe.',
+  })
   public check() {
     return this.ready();
   }
@@ -34,6 +38,10 @@ export class HealthController {
    */
   @Get('ready')
   @HealthCheck()
+  @ApiOperation({
+    summary: 'Check database readiness',
+    description: 'Reports whether the service can reach its PostgreSQL database.',
+  })
   public async ready() {
     const result = await this._health.check([() => this._db.pingCheck('database')]);
 
@@ -41,6 +49,10 @@ export class HealthController {
   }
 
   @Get('live')
+  @ApiOperation({
+    summary: 'Check process liveness',
+    description: 'Reports whether the application process is running and accepting requests.',
+  })
   public live() {
     return {
       message: 'Service is live',

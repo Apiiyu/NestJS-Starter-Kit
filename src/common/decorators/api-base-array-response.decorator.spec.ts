@@ -1,12 +1,25 @@
 import { Controller, Get } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { ApiProperty, SwaggerModule } from '@nestjs/swagger';
-import type {
-  OpenAPIObject,
-  SchemaObject,
-} from '@nestjs/swagger/dist/interfaces/open-api-spec.interface';
+import type { OpenAPIObject } from '@nestjs/swagger';
 
 import { ApiBaseArrayResponse } from './api-base-array-response.decorator';
+
+interface IArraySchema {
+  items?: unknown;
+  type?: string;
+}
+
+interface IComposedResponseSchema {
+  allOf?: Array<{
+    $ref?: string;
+    properties?: { data?: IArraySchema };
+  }>;
+}
+
+interface IOpenApiResponse {
+  content?: Record<string, { schema?: IComposedResponseSchema }>;
+}
 
 class ItemResponse {
   @ApiProperty()
@@ -34,20 +47,16 @@ describe('ApiBaseArrayResponse', () => {
       const document: OpenAPIObject = SwaggerModule.createDocument(app, {
         openapi: '3.0.0',
         info: { title: 'test', version: '1.0.0' },
-        paths: {},
       });
-      const response = document.paths['/items']?.get?.responses?.['200'];
+      const response = document.paths['/items']?.get?.responses?.['200'] as
+        IOpenApiResponse | undefined;
 
       expect(response).toBeDefined();
-      const schema =
-        response && 'content' in response
-          ? (response.content?.['application/json']?.schema as SchemaObject | undefined)
-          : undefined;
+      const schema = response?.content?.['application/json']?.schema;
       const composedSchemas = schema?.allOf ?? [];
       const arraySchemas = composedSchemas.flatMap((part) => {
-        if ('$ref' in part) return [];
         const data = part.properties?.data;
-        return data && !('$ref' in data) && data.type === 'array' ? [data] : [];
+        return data?.type === 'array' ? [data] : [];
       });
 
       expect(arraySchemas.length).toBeGreaterThan(0);
