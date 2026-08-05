@@ -1,0 +1,77 @@
+name: Security
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  # Advisories are published against code that is already merged, so a push-only trigger
+  # would only ever learn about them on the next unrelated commit.
+  schedule:
+    - cron: '17 3 * * 1'
+
+# Least privilege by default; the one job that needs more raises it on itself.
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  codeql:
+    name: CodeQL
+    runs-on: ubuntu-latest
+    permissions:
+      # Required to upload the SARIF results into the repository's security tab.
+      security-events: write
+      actions: read
+      contents: read
+    steps:
+      - uses: actions/checkout@v5
+      - uses: github/codeql-action/init@v3
+        with:
+          # One identifier covers both languages; splitting them into a matrix would
+          # analyse the same files twice, because every .ts file is also JavaScript to
+          # CodeQL's extractor.
+          languages: javascript-typescript
+          # The default suite reports only high-confidence security results.
+          # security-and-quality adds the maintainability queries, which is what makes
+          # this worth running on a boilerplate other people will copy.
+          queries: security-and-quality
+      # No build step: javascript-typescript is a "none" build-mode language, so CodeQL
+      # extracts straight from source. Running `nest build` first would analyse the
+      # emitted JavaScript instead and lose every type-derived result.
+      - uses: github/codeql-action/analyze@v3
+        with:
+          category: '/language:javascript-typescript'
+
+  gitleaks:
+    name: Secret Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          # gitleaks scans history, not just the working tree. The default shallow clone
+          # would hide a secret that was committed and then removed in a later commit,
+          # which is precisely the case worth catching — the object is still reachable.
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          # The repository-scoped token GitHub injects automatically. No secret has to be
+          # created for this workflow to run.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  audit:
+    name: Dependency Audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - run: bun install --frozen-lockfile
+      # Fails on any high or critical advisory not recorded in audit-allowlist.json with
+      # a reason and an expiry date. See scripts/audit-gate.ts for why a bare
+      # `bun audit --audit-level=high` is not usable as a gate on this tree.
+      - run: bun run audit:ci

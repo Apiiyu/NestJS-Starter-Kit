@@ -1,0 +1,158 @@
+{
+  "$comment": [
+    "Triaged high/critical advisories, enforced by scripts/audit-gate.ts (bun run audit:ci).",
+    "Anything not listed here fails the build. Every entry needs a package, a reason, and",
+    "an expires date; the gate fails on an expired entry and on an entry that no longer",
+    "matches anything, so this file cannot quietly rot.",
+    "",
+    "None of these have a fix reachable from the current dependency ranges. The runtime",
+    "ones are grouped so they can be cleared together by a deliberate upgrade pass rather",
+    "than one bot PR at a time.",
+    "",
+    "Already fixed rather than allowlisted: GHSA-869p-cjfg-cm3x (jws HMAC verification),",
+    "which sat under passport-jwt on the token verification path. See the overrides block",
+    "in package.json."
+  ],
+  "advisories": {
+    "GHSA-q7rr-3cgh-j5r3": {
+      "package": "@opentelemetry/sdk-node, @opentelemetry/exporter-prometheus, @opentelemetry/auto-instrumentations-node",
+      "reason": "Runtime. Crash in the Prometheus exporter on a malformed HTTP request. The fix is 0.217.0 and the direct dependency is ^0.206.0 — under 0ver a caret does not cross the minor, so this needs a deliberate OpenTelemetry SDK upgrade, not a range bump. This app does not expose the Prometheus exporter port; the /metrics endpoint is Fase 4 work and must not land before this is cleared.",
+      "expires": "2026-11-01"
+    },
+    "GHSA-45rx-2jwx-cxfr": {
+      "package": "@opentelemetry/propagator-jaeger",
+      "reason": "Runtime. Denial of service via a malformed Jaeger header. Pulled by @opentelemetry/sdk-node; clears with the same SDK upgrade as GHSA-q7rr-3cgh-j5r3. Jaeger propagation is not enabled — OTEL_ENABLED is off by default and the app registers no Jaeger propagator.",
+      "expires": "2026-11-01"
+    },
+    "GHSA-5375-pq7m-f5r2": {
+      "package": "@grpc/grpc-js",
+      "reason": "Runtime by dependency graph, but not on a reachable path: grpc-js arrives under @nestjs/terminus and the OTLP exporters, and this app speaks no gRPC and runs no gRPC server. The advisory is a server-side crash on a malformed request. Fix is 1.14.4, which the parents' ranges do not reach.",
+      "expires": "2026-11-01"
+    },
+    "GHSA-99f4-grh7-6pcq": {
+      "package": "@grpc/grpc-js",
+      "reason": "Same package and same reasoning as GHSA-5375-pq7m-f5r2 — a crash from a malformed compressed message, on a gRPC path this app never opens.",
+      "expires": "2026-11-01"
+    },
+    "GHSA-66ff-xgx4-vchm": {
+      "package": "protobufjs",
+      "reason": "Runtime by dependency graph only. protobufjs is reached through @nestjs/terminus and the OTLP exporters; the app defines no protobuf schemas and decodes no protobuf from untrusted input. The fix requires >7.6.0, above every parent range.",
+      "expires": "2026-11-01"
+    },
+    "GHSA-75px-5xx7-5xc7": {
+      "package": "protobufjs",
+      "reason": "Same package and same unreachable path as GHSA-66ff-xgx4-vchm.",
+      "expires": "2026-11-01"
+    },
+    "GHSA-jvwf-75h9-cwgg": {
+      "package": "protobufjs",
+      "reason": "Same package and same unreachable path as GHSA-66ff-xgx4-vchm.",
+      "expires": "2026-11-01"
+    },
+    "GHSA-685m-2w69-288q": {
+      "package": "protobufjs",
+      "reason": "Same package and same unreachable path as GHSA-66ff-xgx4-vchm.",
+      "expires": "2026-11-01"
+    },
+    "GHSA-wcpc-wj8m-hjx6": {
+      "package": "protobufjs",
+      "reason": "Same package and same unreachable path as GHSA-66ff-xgx4-vchm.",
+      "expires": "2026-11-01"
+    },
+    "GHSA-r5fr-rjxr-66jc": {
+      "package": "lodash",
+      "reason": "Code injection via _.template. Reached through @nestjs/config and @nestjs/swagger, neither of which exposes _.template to application input, and this codebase does not import lodash. The vulnerable copy is a nested transitive; the top-level resolution is already outside the affected range.",
+      "expires": "2026-11-01"
+    },
+    "GHSA-52cp-r559-cp3m": {
+      "package": "js-yaml",
+      "reason": "Quadratic CPU consumption from YAML merge-key chains. The YAML this project parses is its own config and lint files, all trusted and in-repo; no user-supplied YAML reaches a parser. Vulnerable copies are nested under @nestjs/cli, @nestjs/swagger and commitlint.",
+      "expires": "2026-11-01"
+    },
+    "GHSA-pm4m-ph32-ghv5": {
+      "package": "js-yaml",
+      "reason": "Same package and same trusted-input reasoning as GHSA-52cp-r559-cp3m — exponential parsing time on crafted flow collections.",
+      "expires": "2026-11-01"
+    },
+    "GHSA-fjxv-7rqg-78g4": {
+      "package": "form-data",
+      "reason": "Critical by score, but build-time only: form-data is reached exclusively through supertest and @types/supertest, which exist only in the test suite. It is not in the production dependency tree and never runs in a deployed process.",
+      "expires": "2026-11-01"
+    },
+    "GHSA-hmw2-7cc7-3qxx": {
+      "package": "form-data",
+      "reason": "Same test-only path as GHSA-fjxv-7rqg-78g4 — CRLF injection through unescaped multipart field names, in a package that only ever builds requests the test suite itself wrote.",
+      "expires": "2026-11-01"
+    },
+    "GHSA-mh99-v99m-4gvg": {
+      "package": "brace-expansion",
+      "reason": "Build-time only. Reached through eslint and the TypeScript ESLint plugins, expanding glob patterns written in this repo's own config. Fixes are spread across three majors (1.1.18, 2.1.4, 5.0.9), so no single override can clear it without breaking a parent.",
+      "expires": "2026-11-01"
+    },
+    "GHSA-rgw5-rvv9-x895": {
+      "package": "brace-expansion",
+      "reason": "Same build-time-only glob path and same cross-major fix problem as GHSA-mh99-v99m-4gvg.",
+      "expires": "2026-11-01"
+    },
+    "GHSA-3jxr-9vmj-r5cp": {
+      "package": "brace-expansion",
+      "reason": "Same build-time-only glob path and same cross-major fix problem as GHSA-mh99-v99m-4gvg.",
+      "expires": "2026-11-01"
+    },
+    "GHSA-3ppc-4f35-3m26": {
+      "package": "minimatch",
+      "reason": "Build-time only, and the same shape as the brace-expansion entries: ReDoS on glob patterns, reached through eslint and the nest CLI, matching patterns committed to this repo rather than anything user-supplied. Fixes straddle majors 3 and 9.",
+      "expires": "2026-11-01"
+    },
+    "GHSA-7r86-cg39-jmmj": {
+      "package": "minimatch",
+      "reason": "Same build-time-only glob path and same cross-major fix problem as GHSA-3ppc-4f35-3m26.",
+      "expires": "2026-11-01"
+    },
+    "GHSA-23c5-xmqv-rm74": {
+      "package": "minimatch",
+      "reason": "Same build-time-only glob path and same cross-major fix problem as GHSA-3ppc-4f35-3m26.",
+      "expires": "2026-11-01"
+    },
+    "GHSA-c2c7-rcm5-vvqj": {
+      "package": "picomatch",
+      "reason": "Build-time only. ReDoS via extglob quantifiers, in glob patterns from this repo's lint-staged, jest and nest CLI configuration. The vulnerable copy is a nested 2.x; the top-level resolution is already 4.x and unaffected.",
+      "expires": "2026-11-01"
+    },
+    "GHSA-7p8r-x3mc-p8w7": {
+      "package": "fast-uri",
+      "reason": "Build-time only. Reached through ajv under eslint and the nest CLI, where the URIs being parsed are JSON Schema $ids from local schema files. No request URL reaches this parser.",
+      "expires": "2026-11-01"
+    },
+    "GHSA-v39h-62p7-jpjc": {
+      "package": "fast-uri",
+      "reason": "Same build-time-only JSON Schema path as GHSA-7p8r-x3mc-p8w7.",
+      "expires": "2026-11-01"
+    },
+    "GHSA-q3j6-qgpj-74h6": {
+      "package": "fast-uri",
+      "reason": "Same build-time-only JSON Schema path as GHSA-7p8r-x3mc-p8w7.",
+      "expires": "2026-11-01"
+    },
+    "GHSA-v2hh-gcrm-f6hx": {
+      "package": "fast-uri",
+      "reason": "Same build-time-only JSON Schema path as GHSA-7p8r-x3mc-p8w7.",
+      "expires": "2026-11-01"
+    },
+    "GHSA-4c8g-83qw-93j6": {
+      "package": "fast-uri",
+      "reason": "Same build-time-only JSON Schema path as GHSA-7p8r-x3mc-p8w7.",
+      "expires": "2026-11-01"
+    },
+    "GHSA-25h7-pfq9-p65f": {
+      "package": "flatted",
+      "reason": "Build-time only. flatted is reached solely through eslint's cache serialisation, which reads and writes files eslint itself produced. Not present in the production tree.",
+      "expires": "2026-11-01"
+    },
+    "GHSA-rf6f-7fwh-wjgh": {
+      "package": "flatted",
+      "reason": "Same eslint-cache-only path as GHSA-25h7-pfq9-p65f — prototype pollution through parse() on data eslint wrote itself.",
+      "expires": "2026-11-01"
+    }
+  }
+}
