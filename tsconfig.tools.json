@@ -1,0 +1,31 @@
+{
+  // Type-checks the code that is NOT compiled into dist/ — the e2e suite and the
+  // build-time scripts.
+  //
+  // Neither was covered before. tsconfig.json excludes both so `nest build` does not emit
+  // them, and tsconfig.spec.json inherits `rootDir: ./src`, so pointing tsc at it fails
+  // every file with TS6059 rather than checking it. The result was that a type error in
+  // test/ or scripts/ could only be found by running the file — @swc/jest strips types
+  // without checking them, so the suite would not catch it either.
+  //
+  // `rootDir` is widened to the repository root because these files legitimately live
+  // outside src/ and import from it. Nothing is emitted, so rootDir only has to be wide
+  // enough to contain every input.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "rootDir": ".",
+    "types": ["jest", "node"],
+    // The scripts run under bun and use `import.meta.dirname`, which the parent's
+    // "commonjs" setting forbids outright. Overriding the module system here changes only
+    // how these files are *checked* — nothing is emitted, and src/ is still compiled to
+    // commonjs by tsconfig.build.json.
+    "module": "esnext",
+    "moduleResolution": "bundler"
+  },
+  // interfaces.d.ts sits at the repository root and declares the ambient types src/ uses
+  // (IRequestUser, IConstructPageMeta, ...). The parent picks it up implicitly; an
+  // explicit `include` has to name it or every consumer fails with TS2304.
+  "include": ["interfaces.d.ts", "src/**/*.ts", "scripts/**/*.ts", "test/**/*.ts"],
+  "exclude": ["node_modules", "dist"]
+}

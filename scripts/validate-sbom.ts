@@ -106,7 +106,14 @@ const main = async (): Promise<void> => {
   // against it.
   const ajv = new Ajv({ allErrors: true, strict: false });
 
-  addFormats(ajv);
+  /**
+   * ajv-formats resolves its own nested copy of ajv, so its parameter type refers to a
+   * *different* Ajv class than the one constructed above even though both are ajv 8.
+   * TypeScript compares those nominally and rejects the call. The cast is safe because
+   * addFormats only registers format definitions on whatever instance it is handed — it
+   * does not depend on the identity of the class.
+   */
+  addFormats(ajv as unknown as Parameters<typeof addFormats>[0]);
 
   for (const fileName of REFERENCED_SCHEMAS) {
     const schema = await fetchSchema(fileName);

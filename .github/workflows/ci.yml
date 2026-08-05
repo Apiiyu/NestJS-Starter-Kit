@@ -31,7 +31,13 @@ jobs:
         with:
           bun-version: latest
       - run: bun install --frozen-lockfile
+      # src/, under the same module settings `nest build` uses.
       - run: bunx tsc --noEmit
+      # test/ and scripts/, which the pass above cannot see: tsconfig.json excludes both
+      # so they are not emitted into dist/. Nothing else type-checks them — @swc/jest
+      # strips types without checking them — so without this a broken type in the e2e
+      # suite or a build script only shows up by running it.
+      - run: bunx tsc --noEmit -p tsconfig.tools.json
 
   test:
     name: Test
