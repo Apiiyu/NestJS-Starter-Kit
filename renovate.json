@@ -1,0 +1,49 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended", ":dependencyDashboard", ":semanticCommitTypeAll(chore)"],
+  "timezone": "Asia/Jakarta",
+  "schedule": ["before 6am on monday"],
+  "labels": ["dependencies"],
+  "prConcurrentLimit": 5,
+  "platformAutomerge": true,
+  "lockFileMaintenance": {
+    "enabled": true,
+    "schedule": ["before 6am on the first day of the month"]
+  },
+  "packageRules": [
+    {
+      "description": "The @nestjs/* packages are released together and expect matching versions of each other. Splitting them across PRs produces a window where the tree is internally inconsistent, so they travel as one.",
+      "matchPackageNames": ["@nestjs/**"],
+      "groupName": "nestjs"
+    },
+    {
+      "description": "The OpenTelemetry packages have the same lockstep property, and their 0.x versioning means a minor bump is effectively a major.",
+      "matchPackageNames": ["@opentelemetry/**"],
+      "groupName": "opentelemetry"
+    },
+    {
+      "description": "Patch, pin and digest updates are automerged. They cannot change an API by definition, and CI - lint, type-check, unit tests, the coverage ratchet, e2e against real Postgres, and the Docker build - has to pass first; automerge waits on those checks.",
+      "matchUpdateTypes": ["patch", "pin", "digest"],
+      "automerge": true
+    },
+    {
+      "description": "Dev dependencies are automerged through minor as well. A broken linter or test runner fails CI loudly and immediately, and none of them reach production.",
+      "matchDepTypes": ["devDependencies"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "automerge": true
+    },
+    {
+      "description": "Major updates are never automerged, including for dev dependencies. This rule is last so it overrides the automerge rules above for any dependency they would otherwise have matched.",
+      "matchUpdateTypes": ["major"],
+      "automerge": false,
+      "dependencyDashboardApproval": true,
+      "labels": ["dependencies", "breaking"]
+    },
+    {
+      "description": "Node stays inside the engines range. 26 removed SlowBuffer, which breaks buffer-equal-constant-time under passport-jwt, so a Node major has to be a deliberate, tested decision rather than a bot PR.",
+      "matchPackageNames": ["node"],
+      "matchManagers": ["nvm", "npm"],
+      "allowedVersions": "<25"
+    }
+  ]
+}
