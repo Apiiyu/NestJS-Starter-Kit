@@ -30,6 +30,7 @@
 
 // Node.js
 import { readFileSync, writeFileSync } from 'node:fs';
+import { Buffer } from 'node:buffer';
 import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 import process from 'node:process';
@@ -112,6 +113,18 @@ const splitNameAndVersion = (identifier: string): { name: string; version: strin
 const toPurl = (name: string, version: string): string =>
   `pkg:npm/${name.replace('@', '%40')}@${version}`;
 
+/** The digest lengths in hex characters that CycloneDX accepts for a `hashes` entry. */
+const VALID_HEX_DIGEST_LENGTHS = new Set([32, 40, 64, 96, 128]);
+
+/**
+ * @description Convert an SRI integrity string into a CycloneDX hash entry.
+ *
+ * The two formats disagree about encoding, which is the whole reason this is not a
+ * passthrough. `bun.lock` stores Subresource Integrity — `sha512-` followed by the digest
+ * in **base64**. CycloneDX requires the digest in **hex**, and enforces it with a length-
+ * anchored pattern. Emitting the base64 verbatim produces a document that looks right and
+ * fails schema validation on every single component.
+ */
 const toHashes = (
   integrity: string | undefined,
 ): { alg: string; content: string }[] | undefined => {
@@ -121,19 +134,37 @@ const toHashes = (
     return undefined;
   }
 
-  const [algorithm, encoded] = integrity.split('-');
+  // Split on the first separator only: the base64 payload may itself contain `-` under
+  // the URL-safe alphabet, and splitting on all of them would silently truncate it.
+  const separatorIndex = integrity.indexOf('-');
+
+  if (separatorIndex <= 0) {
+    return undefined;
+  }
+
   const algorithmByPrefix: Record<string, string> = {
     sha1: 'SHA-1',
     sha256: 'SHA-256',
     sha512: 'SHA-512',
   };
-  const alg = algorithmByPrefix[algorithm];
+  const alg = algorithmByPrefix[integrity.slice(0, separatorIndex)];
+  const encoded = integrity.slice(separatorIndex + 1);
 
-  if (!alg || !encoded) {
+  if (!alg || encoded.length === 0) {
     return undefined;
   }
 
-  return [{ alg, content: encoded }];
+  const content = Buffer.from(encoded, 'base64').toString('hex');
+
+  // Buffer.from is lenient — it discards characters outside the alphabet rather than
+  // throwing — so a malformed integrity string decodes to something short instead of
+  // failing. Checking the length here is what turns that silent corruption into an
+  // omitted hash, which is valid, rather than an invalid document.
+  if (!VALID_HEX_DIGEST_LENGTHS.has(content.length)) {
+    return undefined;
+  }
+
+  return [{ alg, content }];
 };
 
 const main = (): void => {

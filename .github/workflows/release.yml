@@ -1,0 +1,47 @@
+name: Release
+
+on:
+  release:
+    types: [published]
+  # The SBOM is worth being able to produce on demand — to inspect the current tree, or
+  # to attach the artifact to a release published before this workflow existed.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  sbom:
+    name: SBOM
+    runs-on: ubuntu-latest
+    permissions:
+      # Needed to attach the generated file to the release.
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      # --frozen-lockfile matters more here than anywhere else: the SBOM is a statement
+      # about exactly which versions ship, so it has to be generated from the same
+      # resolution the release was built from, not a fresh one.
+      - run: bun install --frozen-lockfile
+      - run: bun run sbom
+
+      # Fail loudly rather than publish a malformed inventory. A consumer who cannot parse
+      # the SBOM is worse off than one who knows it is missing, because a broken file
+      # still looks like compliance from the outside.
+      - run: bun run sbom:validate
+
+      - uses: actions/upload-artifact@v5
+        with:
+          name: sbom-cyclonedx
+          path: sbom.cdx.json
+          if-no-files-found: error
+
+      # Only on an actual release; a workflow_dispatch run has no release to attach to.
+      - name: Attach the SBOM to the release
+        if: github.event_name == 'release'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload "${{ github.event.release.tag_name }}" sbom.cdx.json --clobber
