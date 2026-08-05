@@ -1,5 +1,5 @@
 // Entities
-import { UsersEntity } from '../../users/entities/users.entity';
+import { UsersEntity } from '../../users';
 
 // NestJS Libraries
 import { ApiProperty } from '@nestjs/swagger';

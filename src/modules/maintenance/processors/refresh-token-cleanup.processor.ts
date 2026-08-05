@@ -6,7 +6,7 @@ import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Logger } from '@nestjs/common';
 
 // Services
-import { RefreshTokenService } from '../../authentication/services/refresh-token.service';
+import { RefreshTokenService } from '../../authentication';
 
 // BullMQ
 import type { Job } from 'bullmq';

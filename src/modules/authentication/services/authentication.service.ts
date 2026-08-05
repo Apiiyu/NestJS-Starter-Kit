@@ -13,7 +13,7 @@ import { randomUUID } from 'node:crypto';
 import { RegisterEmailDto } from '../dtos/register.dto';
 
 // Entities
-import { UsersEntity } from '../../users/entities/users.entity';
+import { UsersEntity, UsersService } from '../../users';
 
 // Interfaces
 import type { ILogin, ILogout } from '../interfaces/authentication.interface';
@@ -24,8 +24,7 @@ import { JwtService } from '@nestjs/jwt';
 
 // Services
 import { RefreshTokenService } from './refresh-token.service';
-import { MailService } from '../../mail/services/mail.service';
-import { UsersService } from '../../users/services/users.service';
+import { MailService } from '../../mail';
 
 @Injectable()
 export class AuthenticationService {

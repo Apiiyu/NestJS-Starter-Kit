@@ -2,7 +2,7 @@
 import { MAINTENANCE_QUEUE } from './constants/maintenance-queue.constant';
 
 // Modules
-import { AuthenticationModule } from '../authentication/authentication.module';
+import { AuthenticationModule } from '../authentication';
 
 // NestJS Libraries
 import { BullModule } from '@nestjs/bullmq';

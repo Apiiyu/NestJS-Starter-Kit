@@ -6,7 +6,7 @@ import { LoginUsernameDto, LoginWithAccessToken, RefreshTokenDto } from '../dtos
 import { RegisterEmailDto } from '../dtos/register.dto';
 
 // Entities
-import { UsersEntity } from '../../users/entities/users.entity';
+import { UsersEntity, UsersService } from '../../users';
 
 // Guards
 import { AuthenticationJWTGuard } from '../../../common/guards/authentication-jwt.guard';
@@ -18,7 +18,6 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 
 // Services
 import { AuthenticationService } from '../services/authentication.service';
-import { UsersService } from '../../users/services/users.service';
 
 @Controller('authentication')
 @ApiTags('Authentication')

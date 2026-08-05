@@ -9,8 +9,8 @@ import { RefreshTokenEntity } from './entities/refresh-token.entity';
 
 // Modules
 import { JwtConfigModule } from '../../configurations/jwt/jwt-configuration.module';
-import { MailModule } from '../mail/mail.module';
-import { UsersModule } from '../users/users.module';
+import { MailModule } from '../mail';
+import { UsersModule } from '../users';
 
 // NestJS Libraries
 import { Module } from '@nestjs/common';

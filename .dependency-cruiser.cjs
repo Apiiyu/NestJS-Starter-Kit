@@ -18,6 +18,7 @@ module.exports = {
         path: [
           '^src/database/',
           '^src/modules/[^/]+/repositories/',
+          '^node_modules/typeorm/',
           '^(?:node:)?typeorm$',
         ],
       },
