@@ -1,6 +1,6 @@
 {
   "name": "nestjs-starter-kit",
-  "version": "0.0.1",
+  "version": "1.0.0",
   "description": "",
   "author": "",
   "private": true,
@@ -212,7 +212,7 @@
       }
     },
     "verbose": true,
-    "testTimeout": 1e4
+    "testTimeout": 10000
   },
   "lint-staged": {
     "*.ts": [
