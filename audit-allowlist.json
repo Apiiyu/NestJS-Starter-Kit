@@ -9,15 +9,11 @@
     "  - OpenTelemetry advisories cleared by upgrading the direct dependencies to 0.221.x.",
     "  - The jws HMAC verification flaw (GHSA-869p-cjfg-cm3x) cleared by the jsonwebtoken",
     "    override; it sat under passport-jwt on the token verification path.",
+    "  - The js-yaml parser DoS advisories cleared when 5.2.3 shipped; its flat override",
+    "    was verified against config loading, coverage, the OpenAPI generator, and build.",
     "  - The remaining 30-odd transitive advisories cleared by regenerating bun.lock. The",
     "    parents' caret ranges already permitted the fixed versions; only a stale lockfile",
     "    was holding the old resolutions in place."
   ],
-  "advisories": {
-    "GHSA-pm4m-ph32-ghv5": {
-      "package": "js-yaml",
-      "reason": "Exponential parsing time on crafted YAML flow collections. No fix is reachable: @nestjs/swagger pins js-yaml at exactly 5.2.1, and a repository-wide override to 5.2.3 is not an option either, because cosmiconfig (js-yaml ^4) and @istanbuljs/load-nyc-config (js-yaml ^3) both call safeLoad/safeDump — removed in js-yaml 4 — so forcing one version across all three majors breaks config loading and coverage. Verified by grepping the installed tree, not assumed. Exposure is nil in practice: the advisory is in the parser, this application never parses YAML (no js-yaml import anywhere in src/), and @nestjs/swagger only serialises the generated OpenAPI document. Clears when @nestjs/swagger relaxes or bumps its pin.",
-      "expires": "2026-11-01"
-    }
-  }
+  "advisories": {}
 }
