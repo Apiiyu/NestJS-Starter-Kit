@@ -32,8 +32,10 @@ describe('Health (e2e)', () => {
   it('GET /api/health/live returns ok without touching the database', async () => {
     const response = await request(app.getHttpServer()).get('/api/health/live').expect(200);
 
-    // The controller's own shape. Global interceptors are wired in main.ts and
-    // are deliberately not replayed here, so the response is not wrapped.
+    // The controller's own shape. Global interceptors and pipes are wired in
+    // main.ts and are deliberately not replayed here, so success responses stay
+    // unwrapped. The DI-registered AllExceptionsFilter from AppModule remains
+    // active for error responses.
     expect(response.body).toHaveProperty('status', 'ok');
     expect(response.body).toHaveProperty('timestamp');
   });
