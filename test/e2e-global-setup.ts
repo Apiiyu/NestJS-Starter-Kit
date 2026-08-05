@@ -2,6 +2,7 @@ import 'reflect-metadata';
 
 // Node.js
 import path from 'node:path';
+import { randomUUID } from 'node:crypto';
 
 // Test
 import { setE2EContainerState, stopE2EContainers } from './e2e-container-state';
@@ -93,7 +94,14 @@ const applyE2EEnvironment = (
     JWT_EXPIRES_IN: '15m',
     JWT_ISSUER: 'nestjs-starter-kit-e2e',
     JWT_REFRESH_EXPIRES_IN: '7d',
-    JWT_SECRET: 'e2e-jwt-secret-with-enough-entropy-for-tests',
+    /**
+     * Generated per run rather than written down. A literal here is indistinguishable
+     * from a real leaked credential to a secret scanner — gitleaks flagged exactly this
+     * line as a generic-api-key finding — and silencing that with an allowlist trains the
+     * scanner to stay quiet about the file that would matter most. Nothing outside this
+     * process needs the value: the same run signs and verifies every token.
+     */
+    JWT_SECRET: randomUUID(),
     MAIL_FROM: 'noreply@example.test',
     MAIL_HOST: '127.0.0.1',
     MAIL_PASSWORD: '',
