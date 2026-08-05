@@ -88,6 +88,9 @@
     "typeorm": "1.1.0",
     "typeorm-extension": "4.0.0-beta.3"
   },
+  "overrides": {
+    "jsonwebtoken": "9.0.3"
+  },
   "devDependencies": {
     "@commitlint/cli": "20.5.0",
     "@commitlint/config-conventional": "20.5.0",
