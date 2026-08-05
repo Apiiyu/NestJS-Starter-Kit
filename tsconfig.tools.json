@@ -27,5 +27,5 @@
   // (IRequestUser, IConstructPageMeta, ...). The parent picks it up implicitly; an
   // explicit `include` has to name it or every consumer fails with TS2304.
   "include": ["interfaces.d.ts", "src/**/*.ts", "scripts/**/*.ts", "test/**/*.ts"],
-  "exclude": ["node_modules", "dist"]
+  "exclude": ["node_modules", "dist", "artifacts"]
 }
