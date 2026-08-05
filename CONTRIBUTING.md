@@ -10,7 +10,8 @@ of `passport-jwt`, which is why `engines.node` is `>=24 <25`.
 
 ```bash
 bun install
-cp .env.example .env    # then fill JWT_SECRET and the DATABASE_* values
+cp .env.example .env    # then fill JWT_SECRET and METRICS_API_KEY
+bun run dev:up
 bun run migration:run
 bun run seed:run
 bun run start:dev
@@ -18,18 +19,24 @@ bun run start:dev
 
 ## Before you open a PR
 
-All four must pass. CI runs the same commands, so a green local run is a green CI run.
+Run the same core gates as CI before pushing:
 
 ```bash
 bun run lint:check
 bunx tsc --noEmit
-bun run test:cov
+bunx tsc --noEmit -p tsconfig.tools.json
+bun run architecture:check
+bun run test:cov && bun run coverage:ratchet -- --check
+bun run test:e2e
 bun run build
+bun run audit:ci
+bun run sbom && bun run sbom:validate
 ```
 
 Note that `bun run test` does **not** type-check — `@swc/jest` strips types without
-checking them. `bunx tsc --noEmit` is the only thing that does, and it excludes spec
-files, so a broken test fixture will only show up when the test actually runs.
+checking them. The main `tsc` pass excludes specs and scripts, which is why the tools
+configuration is a separate required pass. Contract changes must also pass
+`bun run sdk:build`; it needs the local backing services.
 
 ## Commits
 
@@ -50,6 +57,8 @@ These are load-bearing — the code is written assuming them.
 - Private class members take an underscore prefix: `_usersService`.
 - Keep variables, functions, and imports alphabetically ordered within their block.
 - Generate new modules with `bun run generate:module <name>` rather than by hand.
+- Import another feature module through its public `index.ts` only.
+- Keep controllers out of persistence and TypeORM; dependency-cruiser enforces this.
 - Before adding a dependency, weigh update frequency, community size, open issues,
   and bundle impact. Say why in the PR description.
 

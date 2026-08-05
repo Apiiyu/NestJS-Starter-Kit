@@ -16,8 +16,13 @@
 
 - [ ] `bun run lint:check` passes
 - [ ] `bunx tsc --noEmit` passes
-- [ ] `bun run test:cov` passes
+- [ ] `bunx tsc --noEmit -p tsconfig.tools.json` passes
+- [ ] `bun run architecture:check` passes
+- [ ] `bun run test:cov && bun run coverage:ratchet -- --check` passes
+- [ ] `bun run test:e2e` passes when runtime behavior changed
 - [ ] `bun run build` passes
+- [ ] `bun run audit:ci` and SBOM validation pass when dependencies changed
+- [ ] `bun run sdk:build` passes when the HTTP contract changed
 - [ ] Schema changes ship as a migration, and `migration:revert` was tested
 - [ ] Any new dependency is justified above
 - [ ] Docs updated if behaviour or conventions changed

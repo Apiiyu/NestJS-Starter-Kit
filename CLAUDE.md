@@ -1,139 +1,155 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Repository guidance for Claude Code and other coding agents.
 
-## Commands
+## Toolchain and commands
 
-**This project uses bun, not npm.** Always `bun run <script>` — a bare `bun test`
-or `bun build` invokes bun's own runner and bundler instead of the package script.
+This project uses bun, never npm/npx. Always use `bun run <script>`; bare `bun test` and
+`bun build` invoke Bun's own runner/bundler instead of package scripts.
+
+Node must be 24 (`.nvmrc` pins 24.11.0; engines are `>=24 <25`). Node 26 removes
+`SlowBuffer` and breaks a transitive dependency below `passport-jwt`. TypeScript must
+stay on 6.x: the TypeScript 7 preview removes the compiler API used by `@nestjs/cli`, so
+`nest build` and `nest start` fail.
 
 ```bash
-# Development
-bun run start:dev       # Start with watch mode (also runs lint check)
-bun run start:debug     # Debug mode with watch
+# Development and build
+bun run dev:up
+bun run migration:run
+bun run start:dev
+bun run build
+bun run start:prod
 
-# Build & Production
-bun run build           # Compile TypeScript
-bun run start:prod      # Run compiled output
+# Unit, E2E, coverage, and mutation
+bun run test
+bun run test:cov
+bun run coverage:ratchet -- --check
+bun run test:e2e
+bun run test:mutation:dry
+bun run test:mutation
 
-# Testing
-bun run test            # Unit tests
-bun run test:watch      # Unit tests in watch mode
-bun run test:cov        # Coverage report (enforces the threshold gate)
-bun run test:e2e        # E2E tests (./test/jest-e2e.json config)
+# Static and supply-chain gates
+bun run lint:check
+bunx tsc --noEmit
+bunx tsc --noEmit -p tsconfig.tools.json
+bun run architecture:check
+bun run audit:ci
+bun run sbom
+bun run sbom:validate
+bun run sdk:build
 
-# Code Quality
-bun run lint:fix        # ESLint with auto-fix
-bun run format          # Prettier on src/ and test/
-
-# Database
-bun run seed:run        # Run database seeders (TypeORM-extension)
-
-# Scaffolding
-bun run generate:module <name>   # Generate full DDD module skeleton
+# Database and scaffolding
+bun run migration:show
+bun run migration:generate ./src/database/postgres/migrations/DescribeChange
+bun run migration:revert
+bun run seed:run
+bun run generate:module products
 ```
 
-Requires Node 24 (`.nvmrc` pins 24.11.0) and bun >= 1.2. Node 26 breaks a
-transitive dependency of passport-jwt (`buffer-equal-constant-time` uses the
-removed `SlowBuffer`), so the engines range is deliberately `>=24 <25`.
+The TypeORM CLI must run through `bun node_modules/typeorm/cli.js`, which the package
+scripts already wrap. Do not replace it with `bunx typeorm`.
+
+## Bootstrap invariants
+
+`src/common/bootstrap/configure-app.ts` is the single source for the `/api` prefix, URI
+versioning (default `v1`), global interceptors, and `ValidationPipe`. Both `main.ts` and
+E2E bootstrap call `configureApp(app, AppModule)`. Never add a global behavior only in
+`main.ts`; doing so makes E2E test an application that is not the one deployed.
+
+Do not add `incremental: true` to a tsconfig. With Nest's `deleteOutDir`, a stale build
+info file can skip emit after `dist/` is deleted and still exit zero. Remember that
+`tsconfig.build.json` replaces its parent's `exclude` array rather than extending it.
 
 ## Architecture
 
-**Domain-Driven Design** with layered configuration and feature modules.
+The codebase is organized as shared infrastructure, configuration, persistence, and
+feature modules:
 
-### Module Hierarchy
-
-```
+```text
 AppModule
-├── Config layer: AppConfigurationModule, DatabasePostgresConfigModule, JwtConfigurationModule
-├── DB layer: PostgresDatabaseProviderModule (TypeORM DataSource)
-└── Feature layer:
-    ├── AuthenticationModule  ← imports UsersModule
-    └── UsersModule
+├── configurations: app, cache, database, health, JWT, logger, mail, metrics, queue, Redis
+├── database: TypeORM provider, migrations, and seeders
+└── modules: authentication, users, mail, maintenance
 ```
 
-### Configuration Pattern
+dependency-cruiser enforces these boundaries:
 
-Each configuration lives in `src/configurations/<domain>/`. Config modules use `registerAs()` for namespaced env binding and inject via `registerAsync()`. Three config namespaces: `app`, `database.postgres`, `jwt`.
+- Controllers cannot import repositories, TypeORM, or `src/database`.
+- One feature module may import another only from its public `index.ts` barrel.
+- Circular and unresolvable dependencies fail CI.
 
-Environment variables are loaded via `.env` (see `.env.example`). Required vars: `APP_*`, `DATABASE_*`, `JWT_*`.
+Keep private class members underscore-prefixed. Generate modules with
+`bun run generate:module <name>` and preserve the feature-oriented layout.
 
-Two parsers read these files and they disagree, which produces failures that look like
-anything but a config problem:
+## Configuration and local services
 
-- **`docker compose` reads only `.env`. `bun` reads `.env` then overrides it with
-  `.env.local`.** A leftover `.env.local` makes Compose publish one port while the app
-  dials another — the symptom is `password authentication failed` from whatever else
-  happens to be on that port, not a connection refusal.
-- **bun expands `$` inside `.env` values in every quoting style**, bare, single-quoted and
-  double-quoted alike; `IT24680@$^*)` reaches the app as `IT24680@^*)`. Only
-  `"IT24680@\$^*)"` survives bun, and Compose resolves that same spelling to the identical
-  literal. Use the backslash form for any secret containing `$`.
+Configuration is namespaced below `src/configurations/` and validated at startup.
+`.env.example` is the canonical inventory. `JWT_SECRET` and `METRICS_API_KEY` are required
+high-entropy values; the metrics key must be at least 32 bytes.
 
-Never trust the file's contents — read the value back with
-`bun -e 'console.log(process.env.DATABASE_PASSWORD)'` before debugging anything downstream.
+Compose reads `.env`; bun also reads `.env.local` and lets it override `.env`. A stale
+`.env.local` can point the app at a different host port than Compose publishes. Bun also
+expands `$` in quoted values, so a literal dollar sign must be escaped:
 
-### Database Pattern
-
-- **TypeORM + PostgreSQL**, Data Mapper pattern
-- `AppBaseEntity` (`src/common/entities/base.entity.ts`): UUID PK, `timestamptz` audit
-  timestamps maintained by TypeORM (`@CreateDateColumn` / `@UpdateDateColumn` /
-  `@DeleteDateColumn`), plus createdBy/updatedBy/deletedBy fields
-- Soft delete is native: `softDelete()`, `restore()` and `withDeleted` all work.
-  TypeORM appends `deletedAt IS NULL` to every find and query-builder call
-  automatically, so **any query that must see deleted rows has to opt in** with
-  `.withDeleted()` / `withDeleted: true`. `UsersService._filterData` and
-  `UsersService.restore` do exactly that; forgetting it fails silently — an empty
-  page or a spurious NotFound, never an error.
-- Do not reintroduce `@BeforeInsert`/`@BeforeUpdate` hooks for timestamps. They do
-  not fire for `repository.update()` or `QueryBuilder.update()`, which is how
-  `updatedAt` went stale before, and raw SQL (the seeders) bypassed them entirely.
-- DataSource config at `src/database/postgres/postgres-data-source.ts`. It duplicates
-  `entities` and `namingStrategy` from the runtime module on purpose — the CLI loads
-  this file, and without them `migration:generate` emits an empty migration or loops
-  renaming columns forever.
-- Migrations in `src/database/postgres/migrations/`, seeders in
-  `src/database/postgres/seeders/`
-- The TypeORM CLI runs through `bun node_modules/typeorm/cli.js`, not `bunx typeorm`.
-  `bunx` hands the data-source to Node's ESM loader, which cannot resolve the
-  extensionless relative TS imports inside it.
-
-### Authentication Pattern
-
-- **Local strategy**: bcrypt password validation → issues JWT
-- **JWT strategy**: Bearer token from Authorization header, validates issuer
-- Guards: `JwtAuthGuard`, `LocalAuthGuard` in `src/common/guards/`
-- Password hashing uses `SALT_OR_ROUND` constant from bcrypt helpers
-
-### API Response Pattern
-
-All responses are wrapped via `CustomBaseResponseInterceptor` → `BaseResponseDto<T>` with `statusCode`, `message`, `data`. Global validation uses `ValidationPipe` with `transform: true` and `whitelist: true`. Use `@Exclude()` on entity fields for serialization control.
-
-### Generating a New Module
-
-```bash
-npm run generate:module products
+```dotenv
+DATABASE_PASSWORD="IT24680@\$^*)"
 ```
 
-Creates: Controller, Service, Entity, DTOs, Interfaces — following the established `src/modules/<name>/` structure. Always use this generator to maintain consistency.
+Read values back with `bun -e 'console.log(process.env.X)'` when diagnosing configuration.
+`bun run dev:up` starts PostgreSQL 17, cache Redis, no-eviction queue Redis, Mailpit, and
+Jaeger. The app itself remains on the host for watch mode.
 
-### Code Style Conventions
+## Persistence invariants
 
-- Private class properties use underscore prefix: `_propertyName`
-- Keep variable/function/import names alphabetically ordered within their block
-- Before adding a dependency, evaluate: update frequency, community size, open issues, bundle impact
+- TypeORM uses PostgreSQL and explicit migrations; keep `DATABASE_SYNCHRONIZE=false`.
+- `AppBaseEntity` uses UUIDs, native `timestamptz` audit columns, and
+  `@DeleteDateColumn`. Do not restore lifecycle hooks for timestamps: repository update
+  and raw SQL paths bypass them.
+- Audit column names are camelCase. Raw SQL must quote them, for example
+  `users."deletedAt"`.
+- TypeORM hides soft-deleted rows automatically. Queries that need them must opt into
+  `.withDeleted()` or `withDeleted: true`.
+- Runtime and CLI data-source entity/naming configuration is duplicated deliberately;
+  removing it causes empty or endlessly repeating generated migrations.
 
-### Tooling Notes
+See `docs/adr/` before revisiting TypeORM, bun, toolchain pins, audit-column naming, or
+native timestamp/soft-delete decisions.
 
-- Tests transform through `@swc/jest`, which does **not** type-check. Type safety
-  comes from the separate `bunx tsc --noEmit` CI job — run it before assuming a
-  green test run means the types are sound.
-- TypeScript stays on 6.x. TS 7.0 ships only the `tsc` binary and drops the
-  programmatic compiler API that `@nestjs/cli` needs, so `nest build` and
-  `nest start` both fail on it. The codebase itself compiles clean under 7.0.2;
-  revisit when the API returns in 7.1.
-- Do not add `incremental: true` to `tsconfig.json`. Combined with nest-cli's
-  `deleteOutDir`, tsc reads a stale `.tsbuildinfo`, skips emit after nest wiped
-  `dist/`, and produces a partial build that still exits 0.
-- The audit columns on `AppBaseEntity` declare explicit camelCase names, so raw
-  SQL must quote them (`users."deletedAt"`), not assume snake_case.
+## Authentication and responses
+
+Local Passport validates bcrypt credentials. JWT Passport validates bearer tokens and
+issuer; access tokens are short-lived, while rotated refresh tokens provide long
+sessions and are revoked on logout. Password input is 8–72 bytes; the upper bound is
+bcrypt's effective limit. Login intentionally accepts existing credentials without
+re-applying registration policy.
+
+Responses are wrapped by `CustomBaseResponseInterceptor` into the shared envelope.
+Global validation transforms values and strips unknown input. Use schema DTO validation
+at every boundary and `@Exclude()` for fields that must not serialize.
+
+## Observability and generated contracts
+
+Pino logs include request/correlation IDs and, when a span is active, OTel `traceId` and
+`spanId`. Request IDs are attached to the active span. The `/api/v1/metrics` endpoint is
+protected by a custom Passport strategy whose digest comparison uses
+`crypto.timingSafeEqual`; never replace it with `===`. Pino must continue redacting
+`req.headers.x-api-key`.
+
+`bun run sdk:build` boots the real `AppModule`, applies `configureApp`, emits OpenAPI,
+runs Spectral with warnings as failures, generates the Hey API client, and type-checks
+the result. It needs the same PostgreSQL and Redis services as an application boot.
+
+## Quality and security
+
+Jest runs through SWC and does not type-check. The normal TypeScript pass excludes test
+and tool files, so both `bunx tsc --noEmit` and `bunx tsc --noEmit -p tsconfig.tools.json`
+are required.
+
+Coverage is ratcheted through `coverage-baseline.json`; CI uses `--check` and never
+rewrites it. Add tests instead of lowering the baseline. E2E uses testcontainers with a
+real PostgreSQL and two Redis containers, `maxWorkers: 1`. Stryker mutation testing is
+nightly because it is intentionally too expensive for every pull request.
+
+The audit gate rejects untriaged high/critical advisories plus expired or stale
+allowlist entries. The SBOM generator reads `bun.lock` and its CycloneDX 1.6 output is
+schema-validated. Never hardcode secrets or weaken `eslint.config.mjs` to make code pass.

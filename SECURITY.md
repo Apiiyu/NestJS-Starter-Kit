@@ -16,10 +16,12 @@ you believe it has. You can expect an acknowledgement within 7 days.
 
 ## Notes for projects built on this kit
 
-The kit ships secure defaults, but three things are yours to get right:
+The kit ships secure defaults, but these things are yours to get right:
 
 - `JWT_SECRET` must be a high-entropy value set per environment. It is deliberately
   blank in `.env.example` so an unset secret fails loudly rather than defaulting.
+- `METRICS_API_KEY` must be an independent high-entropy value and must only be sent by
+  authorized Prometheus scrapers over TLS outside local development.
 - `DATABASE_SYNCHRONIZE` must stay `false` outside local development. It will drop
   columns to match entities.
 - `DATABASE_MIGRATIONS_RUN` should be `false` in production. Run migrations as a
