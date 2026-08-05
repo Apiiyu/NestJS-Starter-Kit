@@ -25,6 +25,7 @@ type AppEnvironmentVariables = {
   MAIL_PASSWORD?: string;
   MAIL_PORT?: string;
   MAIL_USERNAME?: string;
+  METRICS_API_KEY: string;
   OTEL_ENABLED?: string;
   OTEL_EXPORTER_OTLP_ENDPOINT?: string;
   OTEL_EXPORTER_OTLP_METRICS_ENDPOINT?: string;
@@ -65,6 +66,20 @@ const assertRequired = (
 
   if (!value || value.trim().length === 0) {
     throw new Error(`Environment variable ${key} is required.`);
+  }
+
+  return value;
+};
+
+const assertMinimumBytes = (
+  environment: Partial<AppEnvironmentVariables>,
+  key: keyof AppEnvironmentVariables,
+  minimumBytes: number,
+): string => {
+  const value = assertRequired(environment, key);
+
+  if (Buffer.byteLength(value, 'utf8') < minimumBytes) {
+    throw new Error(`Environment variable ${key} must be at least ${minimumBytes} bytes.`);
   }
 
   return value;
@@ -186,6 +201,7 @@ export const validateEnvironment = (
     MAIL_PASSWORD: environment.MAIL_PASSWORD?.trim(),
     MAIL_PORT: environment.MAIL_PORT?.trim(),
     MAIL_USERNAME: environment.MAIL_USERNAME?.trim(),
+    METRICS_API_KEY: assertMinimumBytes(environment, 'METRICS_API_KEY', 32),
     OTEL_ENABLED: String(parseBoolean(environment, 'OTEL_ENABLED', false)),
     OTEL_EXPORTER_OTLP_ENDPOINT: parseOptionalUrl(environment, 'OTEL_EXPORTER_OTLP_ENDPOINT'),
     OTEL_EXPORTER_OTLP_METRICS_ENDPOINT: parseOptionalUrl(

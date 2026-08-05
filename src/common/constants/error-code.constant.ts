@@ -42,7 +42,7 @@ export const ERROR_CODE = {
   USER_USERNAME_TAKEN: 'USER_USERNAME_TAKEN',
 
   /**
-   * Authentication domain. All 401s, and all three exist because the client's next
+   * Authentication domain. All 401s, and the token codes exist because the client's next
    * move differs: `EXPIRED` means "refresh and retry, silently"; `INVALID` means
    * "this credential is junk, send the user to log in"; `WRONG_TYPE` means "you sent
    * a refresh token to an endpoint that wants an access token", which is a bug in the
@@ -52,6 +52,7 @@ export const ERROR_CODE = {
   AUTH_TOKEN_EXPIRED: 'AUTH_TOKEN_EXPIRED',
   AUTH_TOKEN_INVALID: 'AUTH_TOKEN_INVALID',
   AUTH_TOKEN_WRONG_TYPE: 'AUTH_TOKEN_WRONG_TYPE',
+  AUTH_API_KEY_INVALID: 'AUTH_API_KEY_INVALID',
 
   /**
    * Refresh flow. `AUTH_REFRESH_REUSED` is the one that matters: it means a token that

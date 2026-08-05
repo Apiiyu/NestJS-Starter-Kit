@@ -2,6 +2,7 @@ import { randomUUID } from 'crypto';
 import { Injectable, type NestMiddleware } from '@nestjs/common';
 import type { IncomingHttpHeaders } from 'http';
 import type { NextFunction, Request, Response } from 'express';
+import { trace } from '@opentelemetry/api';
 import { RequestContextService } from './request-context.service';
 
 type RequestWithContext = Request & {
@@ -42,6 +43,11 @@ export class RequestContextMiddleware implements NestMiddleware {
 
     response.setHeader('x-request-id', requestId);
     response.setHeader('x-correlation-id', correlationId);
+
+    trace.getActiveSpan()?.setAttributes({
+      'app.correlation_id': correlationId,
+      'app.request_id': requestId,
+    });
 
     this._requestContextService.run(
       {

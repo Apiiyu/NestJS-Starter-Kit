@@ -63,6 +63,10 @@ export class AppConfigurationsService {
     return this._configurationsService.getOrThrow<string>('app.appTrustProxy') === 'true';
   }
 
+  get metricsApiKey(): string {
+    return this._configurationsService.getOrThrow<string>('app.metricsApiKey');
+  }
+
   get otelEnabled(): boolean {
     return this._configurationsService.getOrThrow<string>('app.otelEnabled') === 'true';
   }

@@ -27,6 +27,14 @@ services:
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-15m}
       JWT_REFRESH_EXPIRES_IN: ${JWT_REFRESH_EXPIRES_IN:-7d}
       JWT_ISSUER: ${JWT_ISSUER:-nestjs-starter-kit}
+      METRICS_API_KEY: ${METRICS_API_KEY}
+      OTEL_ENABLED: ${OTEL_ENABLED:-false}
+      # The host-side .env points at localhost:4318. Inside this container localhost is
+      # the app itself, so the compose network must use the Jaeger service name instead.
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
+      OTEL_METRICS_ENABLED: ${OTEL_METRICS_ENABLED:-false}
+      OTEL_SERVICE_NAME: ${OTEL_SERVICE_NAME:-nestjs-starter-kit}
+      OTEL_SERVICE_VERSION: ${OTEL_SERVICE_VERSION:-0.0.1}
       REDIS_HOST: redis
       REDIS_PORT: 6379
       QUEUE_REDIS_HOST: redis-queue
@@ -45,6 +53,8 @@ services:
       redis-queue:
         condition: service_healthy
       mailpit:
+        condition: service_started
+      jaeger:
         condition: service_started
     command: bun run start:dev
     networks:
@@ -113,6 +123,16 @@ services:
     ports:
       - '${MAIL_SMTP_PORT:-1025}:1025'
       - '${MAIL_UI_PORT:-8025}:8025'
+    networks:
+      - app_network
+
+  jaeger:
+    image: jaegertracing/jaeger:2.20.0
+    restart: unless-stopped
+    ports:
+      - '${JAEGER_UI_PORT:-16686}:16686'
+      - '${OTEL_GRPC_PORT:-4317}:4317'
+      - '${OTEL_HTTP_PORT:-4318}:4318'
     networks:
       - app_network
 

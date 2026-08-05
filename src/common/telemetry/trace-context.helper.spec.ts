@@ -2,7 +2,7 @@
 import type { Span } from '@opentelemetry/api';
 
 // Helpers
-import { getTraceIdentifiers } from './trace-context.helper';
+import { getActiveTraceIdentifiers, getTraceIdentifiers } from './trace-context.helper';
 
 const TRACE_ID = '0123456789abcdef0123456789abcdef';
 const SPAN_ID = '0123456789abcdef';
@@ -31,5 +31,9 @@ describe('getTraceIdentifiers', () => {
     ['an all-zero span id', spanWithIdentifiers(TRACE_ID, '0'.repeat(16))],
   ])('returns no log fields for %s', (_label, span) => {
     expect(getTraceIdentifiers(span)).toEqual({});
+  });
+
+  it('returns no identifiers when telemetry has no active span', () => {
+    expect(getActiveTraceIdentifiers()).toEqual({});
   });
 });

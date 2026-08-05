@@ -14,6 +14,7 @@ import { APP_FILTER, APP_GUARD } from '@nestjs/core';
 
 // Health
 import { HealthModule } from './configurations/health/health.module';
+import { MetricsModule } from './configurations/metrics/metrics.module';
 
 // Logger
 import { AppLoggerModule } from './configurations/logger/logger.module';
@@ -50,6 +51,7 @@ import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
     AppLoggerModule,
     HealthModule,
     MaintenanceModule,
+    MetricsModule,
     ThrottlerModule.forRootAsync({
       imports: [AppConfigurationModule],
       inject: [AppConfigurationsService],

@@ -3,6 +3,9 @@ import { Module } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import type { IncomingHttpHeaders } from 'http';
 
+// Telemetry
+import { getActiveTraceIdentifiers } from '../../common/telemetry/trace-context.helper';
+
 // Pino
 import { LoggerModule } from 'nestjs-pino';
 
@@ -55,11 +58,12 @@ const resolveRequestId = (request: RequestIdentifierSource): string => {
             ? { target: 'pino-pretty', options: { singleLine: true } }
             : undefined,
         level: process.env.NODE_ENV !== 'production' ? 'debug' : 'info',
-        redact: ['req.headers.authorization', 'req.body.password'],
+        redact: ['req.headers.authorization', 'req.headers.x-api-key', 'req.body.password'],
         customProps: (request) => ({
           correlationId:
             firstHeaderValue(request.headers['x-correlation-id']) ?? resolveRequestId(request),
           requestId: resolveRequestId(request),
+          ...getActiveTraceIdentifiers(),
         }),
       },
     }),
