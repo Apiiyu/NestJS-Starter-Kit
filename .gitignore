@@ -26,6 +26,9 @@ lerna-debug.log*
 /coverage
 /.nyc_output
 
+# Generated supply-chain artifacts (rebuilt by `bun run sbom` / the release workflow)
+/sbom.cdx.json
+
 # IDEs and editors
 /.idea
 .project
