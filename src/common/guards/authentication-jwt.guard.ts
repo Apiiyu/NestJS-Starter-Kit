@@ -14,10 +14,21 @@ import { AuthGuard } from '@nestjs/passport';
 // RxJS
 import type { Observable } from 'rxjs';
 
+/**
+ * @description Requires a valid bearer token, unless the route is marked public.
+ *
+ * Wraps Passport's JWT guard to add the public-route escape hatch and to log rejections, so an
+ * authentication failure leaves a trace instead of only a 401 on the wire.
+ */
 @Injectable()
 export class AuthenticationJWTGuard extends AuthGuard('jwt') {
   private readonly _logger = new Logger(AuthenticationJWTGuard.name);
 
+  /**
+   * @description Runs the JWT strategy unless the route is marked public.
+   *
+   * @param context The execution context, read for the public-route metadata and the request.
+   */
   public canActivate(context: ExecutionContext): boolean | Promise<boolean> | Observable<boolean> {
     return super.canActivate(context);
   }

@@ -1,10 +1,18 @@
-import { ForbiddenException } from '@nestjs/common';
-import type { TestingModule } from '@nestjs/testing';
-import { Test } from '@nestjs/testing';
-
+// Constants
 import { USER_ROLE } from '../../../common/constants/role.constant';
-import { ListOptionDto } from '../../../common/dtos/list-options.dto';
+
+// Controllers
 import { UsersController } from './users.controller';
+
+// DTOs
+import { ListOptionDto } from '../../../common/dtos/list-options.dto';
+
+// NestJS Libraries
+import { ForbiddenException } from '@nestjs/common';
+import { Test } from '@nestjs/testing';
+import type { TestingModule } from '@nestjs/testing';
+
+// Services
 import { UsersService } from '../services/users.service';
 
 const ADMIN: IRequestUser = {

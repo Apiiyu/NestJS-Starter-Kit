@@ -12,6 +12,13 @@ const MS_PER_UNIT = new Map<string, number>([
   ['d', 86_400_000],
 ]);
 
+/**
+ * @description Matches a duration string: a whole number followed by one of the supported
+ * unit suffixes.
+ *
+ * Anchored at both ends so `7dd` or `7 d` is rejected outright rather than being read as `7d`
+ * and silently producing a token lifetime nobody configured.
+ */
 const DURATION_PATTERN = /^(\d+)(ms|s|m|h|d)$/;
 
 /**

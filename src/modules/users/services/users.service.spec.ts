@@ -1,16 +1,28 @@
-import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
-import type { TestingModule } from '@nestjs/testing';
-import { Test } from '@nestjs/testing';
-import { getRepositoryToken } from '@nestjs/typeorm';
-import { DataSource } from 'typeorm';
-
+// Constants
 import { ERROR_CODE } from '../../../common/constants/error-code.constant';
 import { USER_ROLE } from '../../../common/constants/role.constant';
+
+// DTOs
 import { ListOptionDto } from '../../../common/dtos/list-options.dto';
-import { PG_UNIQUE_VIOLATION } from '../../../common/helpers/postgres-error.helper';
+
+// Entities
 import { USERS_UNIQUE_INDEX, UsersEntity } from '../entities/users.entity';
+
+// Helpers
+import { PG_UNIQUE_VIOLATION } from '../../../common/helpers/postgres-error.helper';
+
+// NestJS Libraries
+import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
+import { Test } from '@nestjs/testing';
+import type { TestingModule } from '@nestjs/testing';
+import { getRepositoryToken } from '@nestjs/typeorm';
+
+// Services
 import { UsersCacheService } from './users-cache.service';
 import { UsersService } from './users.service';
+
+// TypeORM
+import { DataSource } from 'typeorm';
 
 const mockUser: Partial<UsersEntity> = {
   id: 'uuid-1',

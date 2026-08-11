@@ -34,10 +34,12 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 
 // Services
 import { UsersService } from '../services/users.service';
+
+// Swagger
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 
 /**
  * @description HTTP surface for `UsersService`.
@@ -80,60 +82,12 @@ export class UsersController {
     }
   }
 
-  @Get()
-  @Roles(USER_ROLE.ADMIN)
-  @ApiOperation({
-    summary: 'List users, optionally including soft-deleted ones',
-    description: 'Allows administrators to page through active and, when requested, deleted users.',
-  })
-  @ApiBaseArrayResponse(UsersEntity)
-  public async findAll(@Query() filters: ListOptionDto) {
-    const result = await this._usersService.findAll(filters);
-
-    return {
-      message: 'Users have been retrieved successfully',
-      result,
-    };
-  }
-
-  @Get(':id')
-  @ApiOperation({
-    summary: 'Get one user — admins any, everyone else only themselves',
-    description: 'Returns one user after enforcing self-or-administrator authorization.',
-  })
-  @ApiBaseResponse(UsersEntity)
-  public async findOne(@Param('id', ParseUUIDPipe) id: string, @Req() req: ICustomRequestHeaders) {
-    this._assertSelfOrAdmin(req.user, id);
-
-    const result = await this._usersService.findOneById(id);
-
-    return {
-      message: 'User has been retrieved successfully',
-      result,
-    };
-  }
-
-  @Patch(':id')
-  @ApiOperation({
-    summary: 'Update a user. The password is not changeable here — see UpdateUserProfileDto',
-    description: 'Updates profile fields after enforcing self-or-administrator authorization.',
-  })
-  @ApiBaseResponse(UsersEntity)
-  public async update(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Body() requestBody: UpdateUserProfileDto,
-    @Req() req: ICustomRequestHeaders,
-  ) {
-    this._assertSelfOrAdmin(req.user, id);
-
-    const result = await this._usersService.update(id, requestBody, req.user);
-
-    return {
-      message: 'User has been updated successfully',
-      result,
-    };
-  }
-
+  /**
+   * @description Soft-deletes a user, freeing their email and username for reuse.
+   *
+   * The row stays in the table so audit history survives. Uniqueness is enforced by partial
+   * indexes scoped to live rows, which is what lets the freed identity be claimed again.
+   */
   @Delete(':id')
   @Roles(USER_ROLE.ADMIN)
   @ApiOperation({
@@ -152,9 +106,60 @@ export class UsersController {
   }
 
   /**
+   * @description Lists users as a page, optionally including soft-deleted ones.
+   *
+   * Administrators only, because this is the one endpoint that exposes accounts other than the
+   * caller's own. Sorting accepts only columns from an explicit allowlist — a sort field taken
+   * straight from the query string is an injection point.
+   */
+  @Get()
+  @Roles(USER_ROLE.ADMIN)
+  @ApiOperation({
+    summary: 'List users, optionally including soft-deleted ones',
+    description: 'Allows administrators to page through active and, when requested, deleted users.',
+  })
+  @ApiBaseArrayResponse(UsersEntity)
+  public async findAll(@Query() filters: ListOptionDto) {
+    const result = await this._usersService.findAll(filters);
+
+    return {
+      message: 'Users have been retrieved successfully',
+      result,
+    };
+  }
+
+  /**
+   * @description Returns one user — administrators may read any, everyone else only their own
+   * record.
+   */
+  @Get(':id')
+  @ApiOperation({
+    summary: 'Get one user — admins any, everyone else only themselves',
+    description: 'Returns one user after enforcing self-or-administrator authorization.',
+  })
+  @ApiBaseResponse(UsersEntity)
+  public async findOne(@Param('id', ParseUUIDPipe) id: string, @Req() req: ICustomRequestHeaders) {
+    this._assertSelfOrAdmin(req.user, id);
+
+    const result = await this._usersService.findOneById(id);
+
+    return {
+      message: 'User has been retrieved successfully',
+      result,
+    };
+  }
+
+  /**
    * A POST rather than a PATCH: restoring is an action on a resource, not a partial
    * update of one, and the request carries no body to patch with. Answers 409
    * USER_RESTORE_CONFLICT when somebody has since claimed the email or username.
+   */
+  /**
+   * @description Restores a soft-deleted user.
+   *
+   * A POST rather than a PATCH: restoring is an action on a resource, not a partial update of
+   * one, and the request carries no body to patch with. Answers 409 `USER_RESTORE_CONFLICT`
+   * when somebody has since claimed the freed email or username.
    */
   @Post(':id/restore')
   @Roles(USER_ROLE.ADMIN)
@@ -169,6 +174,34 @@ export class UsersController {
 
     return {
       message: 'User has been restored successfully',
+      result,
+    };
+  }
+
+  /**
+   * @description Updates a user's profile fields — administrators any user, everyone else only
+   * themselves.
+   *
+   * The password is deliberately not changeable here. Changing a credential needs the current
+   * one re-verified, which is a different flow with a different DTO.
+   */
+  @Patch(':id')
+  @ApiOperation({
+    summary: 'Update a user. The password is not changeable here — see UpdateUserProfileDto',
+    description: 'Updates profile fields after enforcing self-or-administrator authorization.',
+  })
+  @ApiBaseResponse(UsersEntity)
+  public async update(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() requestBody: UpdateUserProfileDto,
+    @Req() req: ICustomRequestHeaders,
+  ) {
+    this._assertSelfOrAdmin(req.user, id);
+
+    const result = await this._usersService.update(id, requestBody, req.user);
+
+    return {
+      message: 'User has been updated successfully',
       result,
     };
   }

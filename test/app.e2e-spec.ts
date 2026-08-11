@@ -1,9 +1,16 @@
-import type { TestingModule } from '@nestjs/testing';
-import { Test } from '@nestjs/testing';
-import type { INestApplication } from '@nestjs/common';
-import request from 'supertest';
-import { AppModule } from './../src/app.module';
+// Bootstrap
 import { configureApp } from './../src/common/bootstrap/configure-app';
+
+// Modules
+import { AppModule } from './../src/app.module';
+
+// NestJS Libraries
+import type { INestApplication } from '@nestjs/common';
+import { Test } from '@nestjs/testing';
+import type { TestingModule } from '@nestjs/testing';
+
+// Testing
+import request from 'supertest';
 
 /**
  * Runs the application through `configureApp`, exactly as main.ts does, so routes,

@@ -1,7 +1,19 @@
+/** @description The environments this application recognises, in promotion order. */
 const APP_ENVIRONMENTS = ['development', 'test', 'staging', 'production'] as const;
 
+/**
+ * @description One of the recognised environment names, derived from `APP_ENVIRONMENTS` so
+ * the list and the type cannot drift apart.
+ */
 type AppEnvironment = (typeof APP_ENVIRONMENTS)[number];
 
+/**
+ * @description The fully parsed environment: every variable the application reads, at the type
+ * it is actually used as.
+ *
+ * Producing this shape is the whole point of validation. Downstream code receives numbers and
+ * booleans rather than strings, so no service has to remember that `PORT` arrives as `"3000"`.
+ */
 type AppEnvironmentVariables = {
   API_EXTERNAL_BASE_URL: string;
   APP_CORS_ORIGINS?: string;
@@ -58,6 +70,13 @@ const readEnvironmentValue = (
   key: keyof AppEnvironmentVariables,
 ): string | undefined => Object.entries(environment).find(([name]) => name === key)?.[1];
 
+/**
+ * @description Returns a variable's value, throwing when it is absent or blank.
+ *
+ * A whitespace-only value counts as absent. `KEY=` and `KEY="   "` are the two shapes a
+ * half-filled `.env` produces, and treating them as present is how an application boots with
+ * an empty secret.
+ */
 const assertRequired = (
   environment: Partial<AppEnvironmentVariables>,
   key: keyof AppEnvironmentVariables,
@@ -71,6 +90,13 @@ const assertRequired = (
   return value;
 };
 
+/**
+ * @description Returns a required variable's value, throwing when it carries fewer than
+ * `minimumBytes` of entropy-bearing input.
+ *
+ * Measured in bytes rather than characters, because the guarantee wanted here is key length,
+ * and a multi-byte character contributes one character but several bytes.
+ */
 const assertMinimumBytes = (
   environment: Partial<AppEnvironmentVariables>,
   key: keyof AppEnvironmentVariables,
@@ -85,6 +111,13 @@ const assertMinimumBytes = (
   return value;
 };
 
+/**
+ * @description Parses a variable as a positive integer, falling back when one is supplied and
+ * throwing when the value is present but not a positive integer.
+ *
+ * The distinction matters: an unset port can reasonably default, but `PORT=abc` is a mistake
+ * that must stop the boot rather than silently become the default.
+ */
 const parsePositiveInteger = (
   environment: Partial<AppEnvironmentVariables>,
   key: keyof AppEnvironmentVariables,
@@ -109,6 +142,13 @@ const parsePositiveInteger = (
   return parsedValue;
 };
 
+/**
+ * @description Parses a variable as a boolean against an explicit set of accepted spellings.
+ *
+ * Never a bare truthiness cast: every environment variable is a string, so `"false"` is
+ * truthy. Reading a flag that way silently inverts it, which is the single most common
+ * configuration bug of this kind.
+ */
 const parseBoolean = (
   environment: Partial<AppEnvironmentVariables>,
   key: keyof AppEnvironmentVariables,
@@ -131,6 +171,12 @@ const parseBoolean = (
   throw new Error(`Environment variable ${key} must be either "true" or "false".`);
 };
 
+/**
+ * @description Parses an optional variable as a URL, throwing when it is present but malformed.
+ *
+ * Validating at boot rather than at first use is what turns "the traces never appeared" into
+ * a startup error naming the variable.
+ */
 const parseOptionalUrl = (
   environment: Partial<AppEnvironmentVariables>,
   key: keyof AppEnvironmentVariables,
@@ -148,6 +194,13 @@ const parseOptionalUrl = (
   }
 };
 
+/**
+ * @description Parses an optional variable as a Pino log level, throwing on an unrecognised
+ * name.
+ *
+ * A typo like `LOG_LEVEL=verbose` would otherwise be accepted by Pino and quietly change how
+ * much the application logs — the kind of thing only noticed during an incident.
+ */
 const parseOptionalLogLevel = (
   environment: Partial<AppEnvironmentVariables>,
   key: keyof AppEnvironmentVariables,
@@ -169,6 +222,14 @@ const parseOptionalLogLevel = (
   return rawValue;
 };
 
+/**
+ * @description Validates and parses the whole environment, returning it fully typed.
+ *
+ * Wired into `ConfigModule` as its `validate` hook, so it runs once at import time and any
+ * failure stops the process before a single request is served. That is the entire design
+ * intent: a misconfigured application must never reach a state where it looks healthy and
+ * fails one endpoint at a time.
+ */
 export const validateEnvironment = (
   environment: Partial<AppEnvironmentVariables>,
 ): AppEnvironmentVariables => {

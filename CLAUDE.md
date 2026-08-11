@@ -2,6 +2,9 @@
 
 Repository guidance for Claude Code and other coding agents.
 
+`AGENT_RULES.md` is one page of non-negotiable rules and outranks this file on conflict.
+`AGENTS.md` is the same material condensed for Codex and other non-Claude agents.
+
 ## Toolchain and commands
 
 This project uses bun, never npm/npx. Always use `bun run <script>`; bare `bun test` and
@@ -29,7 +32,9 @@ bun run test:mutation:dry
 bun run test:mutation
 
 # Static and supply-chain gates
-bun run lint:check
+bun run lint:check          # import groups, code conventions, then ESLint
+bun run format:imports      # rewrites import blocks; the fix for a lint:check sort failure
+bun run lint:conventions    # the convention checker on its own
 bunx tsc --noEmit
 bunx tsc --noEmit -p tsconfig.tools.json
 bun run architecture:check
@@ -79,7 +84,96 @@ dependency-cruiser enforces these boundaries:
 - Circular and unresolvable dependencies fail CI.
 
 Keep private class members underscore-prefixed. Generate modules with
-`bun run generate:module <name>` and preserve the feature-oriented layout.
+`bun run generate:module <name>` and preserve the feature-oriented layout. The generator emits
+the `constants/`, `interfaces/`, and `index.ts` barrel layout with grouped imports and
+`@description` blocks already in place, so a new module satisfies the conventions below from
+its first commit.
+
+## Code conventions
+
+**These are gated, not advisory.** `bun run lint:check` fails the build on any violation, and
+so does CI. Do not work around the checkers — fix the code.
+
+Four rules, enforced by `scripts/check-conventions.ts` and `scripts/sort-imports.ts`.
+
+**1. Every declaration carries a JSDoc `@description`.** Classes, interfaces, type aliases,
+functions, methods, and module-scope constants. A bare `/** ... */` is not enough — the tag
+must be there.
+
+```typescript
+/**
+ * @description Loads a user by email together with their password hash, so the login flow
+ * can verify the credentials. This is the only method that hands out a password.
+ *
+ * @param email The email address submitted at login, in whatever case it arrived.
+ */
+public async findForAuthenticationByEmail(email: string): Promise<LoginIdentity | null> {}
+```
+
+Write for someone who does not know this codebase and may not know TypeScript well. Say what
+the thing is _for_ and, where it matters, why it works the way it does — a description that
+only restates the method name is worse than none, because it looks like documentation while
+carrying no information. Constructors are exempt; their class already describes them.
+
+**2. Imports are grouped under comment headers, sorted A–Z.** Groups sort by their label;
+imports within a group sort by module path, then by the first name imported. Exactly one
+blank line between groups, none inside one.
+
+```typescript
+// Constants
+import { APP_ROLES } from '../../../common/constants/role.constant';
+
+// Interfaces
+import type { UserIdentity } from '../interfaces/users.interface';
+
+// NestJS Libraries
+import { Injectable } from '@nestjs/common';
+```
+
+Never hand-maintain this. Run `bun run format:imports` — it is deterministic and idempotent.
+Labels come from fixed tables in `scripts/sort-imports.ts`; extend those tables rather than
+inventing a label inline. (`import/order` cannot express this convention, which is why it
+stays off — see the script header.)
+
+**Side-effect-only imports are pinned above every group**, in the order they were written.
+`import './instrumentation'` has to run before anything pulls in `@nestjs/core`, `typeorm`, or
+`pg`, because OpenTelemetry can only patch a library it loads first; sorting it into a labelled
+group by its path would put `./app.module` ahead of it and silently drop every span. The same
+protection covers `import 'dotenv/config'` and `import 'reflect-metadata'`.
+
+**3. Class methods run private-first, then public, each group alphabetical.** A helper is
+declared above the method that calls it, so a file reads top to bottom without jumping ahead.
+
+Note the tension with route registration: Express matches the first pattern that fits, so a
+static route declared after a sibling `:param` route is unreachable. When alphabetical ordering
+would cause that, split the controller and order the `controllers` array in the module —
+static-path controllers first, the parameter-path controller last.
+
+**4. Constants and types live in their own files.** Files under `controllers/`, `filters/`,
+`guards/`, `interceptors/`, `processors/`, `repositories/`, `services/`, `stores/`, and
+`strategies/` hold business logic and nothing else:
+
+| Declared at module scope    | Goes to                               |
+| --------------------------- | ------------------------------------- |
+| `const` holding a value     | `constants/<domain>.constant.ts`      |
+| `const` holding a function  | becomes a private method on the class |
+| `type`, `interface`, `enum` | `interfaces/<domain>.interface.ts`    |
+
+Declarations **inside** a function or method body stay exactly where they are — those are
+genuinely local, and moving them costs the reader locality for nothing.
+
+Exempt, because declaring values is the whole job of the file: `app-env.validation.ts`,
+`postgres-data-source.ts`, `instrumentation.ts`.
+
+### The ratchet
+
+`RATCHETED_PATHS` in `scripts/check-conventions.ts` lists the folders currently gated. In this
+starter kit it covers all of `src`, so the kit ships fully converted and a project forked from
+it inherits a green gate rather than a cleanup backlog.
+
+The list only ever grows. If a fork narrows it to stage a conversion, that narrowing happens
+once, at the fork, and every domain is added back as it is converted. **Never remove an entry
+to make a build pass.** Code outside the list is not exempt — it is not converted yet.
 
 ## Configuration and local services
 

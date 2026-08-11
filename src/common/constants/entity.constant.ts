@@ -1,3 +1,11 @@
+/**
+ * @description Audit column definitions for hand-written migrations that create a table
+ * without going through `AppBaseEntity`.
+ *
+ * Note the shape differs from `AppBaseEntity`, which uses native `timestamptz` columns in
+ * camelCase. This list is the older epoch-seconds form and exists for tables that already use
+ * it; new tables should extend the base entity instead of reaching for this.
+ */
 export const ENTITY_TIMESTAMPS = [
   {
     name: 'created_at',

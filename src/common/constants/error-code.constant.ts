@@ -65,6 +65,14 @@ export const ERROR_CODE = {
   AUTH_REFRESH_REUSED: 'AUTH_REFRESH_REUSED',
 } as const;
 
+/**
+ * @description Every error code the API is allowed to return.
+ *
+ * Derived from the object rather than written out, so a code that exists in one and not the
+ * other is a compile error. Clients branch on these strings, which makes them part of the
+ * public contract — the HTTP status alone cannot distinguish an expired token from a replayed
+ * one, and those need different client behaviour.
+ */
 export type ErrorCode = (typeof ERROR_CODE)[keyof typeof ERROR_CODE];
 
 /**

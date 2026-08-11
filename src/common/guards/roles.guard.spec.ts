@@ -1,11 +1,17 @@
+// Constants
+import { ERROR_CODE } from '../constants/error-code.constant';
+import { USER_ROLE } from '../constants/role.constant';
+
+// Decorators
+import { ROLES_KEY } from '../decorators/roles.decorator';
+
+// Guards
+import { RolesGuard } from './roles.guard';
+
+// NestJS Libraries
 import type { ExecutionContext } from '@nestjs/common';
 import { ForbiddenException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-
-import { ERROR_CODE } from '../constants/error-code.constant';
-import { USER_ROLE } from '../constants/role.constant';
-import { ROLES_KEY } from '../decorators/roles.decorator';
-import { RolesGuard } from './roles.guard';
 
 const contextWith = (user: unknown): ExecutionContext =>
   ({

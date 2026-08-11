@@ -1,11 +1,12 @@
 // NestJS Libraries
-import { ConfigService } from '@nestjs/config';
 import { Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 
 /**
- * Service dealing with app config based operations.
+ * @description Typed read access to the JWT signing and lifetime settings.
  *
- * @class
+ * Every getter uses `getOrThrow` rather than a fallback: an unset `JWT_SECRET` must stop the
+ * application, not quietly sign tokens with `undefined`, which would make every token forgeable.
  */
 @Injectable()
 export class JwtConfigService {

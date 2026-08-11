@@ -1,8 +1,16 @@
+// Constants
+import { USER_ROLE } from '../constants/role.constant';
+
+// Entities
+import type { UsersEntity } from '../../modules/users/entities/users.entity';
+
+// NestJS Libraries
 import { UnauthorizedException } from '@nestjs/common';
 
+// Services
 import type { AuthenticationService } from '../../modules/authentication/services/authentication.service';
-import type { UsersEntity } from '../../modules/users/entities/users.entity';
-import { USER_ROLE } from '../constants/role.constant';
+
+// Strategies
 import { LocalStrategy } from './local.strategy';
 
 const user = {

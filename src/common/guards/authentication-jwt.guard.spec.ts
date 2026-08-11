@@ -1,8 +1,12 @@
-import { ForbiddenException, UnauthorizedException } from '@nestjs/common';
-
+// Constants
 import { ERROR_CODE } from '../constants/error-code.constant';
 import { USER_ROLE } from '../constants/role.constant';
+
+// Guards
 import { AuthenticationJWTGuard } from './authentication-jwt.guard';
+
+// NestJS Libraries
+import { ForbiddenException, UnauthorizedException } from '@nestjs/common';
 
 /** Shaped like what `jsonwebtoken` throws and passport-jwt forwards as `info`. */
 const jwtError = (name: string, message: string): Error =>

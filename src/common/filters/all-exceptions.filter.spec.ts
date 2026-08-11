@@ -1,9 +1,15 @@
-import { BadRequestException, HttpException, HttpStatus, NotFoundException } from '@nestjs/common';
-import type { ArgumentsHost } from '@nestjs/common';
-
+// Constants
 import { ERROR_CODE } from '../constants/error-code.constant';
-import type { RequestContextService } from '../request-context/request-context.service';
+
+// Filters
 import { AllExceptionsFilter } from './all-exceptions.filter';
+
+// NestJS Libraries
+import type { ArgumentsHost } from '@nestjs/common';
+import { BadRequestException, HttpException, HttpStatus, NotFoundException } from '@nestjs/common';
+
+// Services
+import type { RequestContextService } from '../request-context/request-context.service';
 
 const buildHost = (url = '/api/v1/users', method = 'GET') => {
   const json = jest.fn();

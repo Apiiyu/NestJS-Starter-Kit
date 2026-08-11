@@ -1,7 +1,7 @@
 // Class Transformer
 import { Exclude } from 'class-transformer';
 
-// NestJS Libraries
+// Swagger
 import { ApiProperty } from '@nestjs/swagger';
 
 // TypeORM
@@ -30,6 +30,13 @@ import {
  *
  * These columns keep explicit camelCase names, so raw SQL must quote them
  * (`users."deletedAt"`) — `SnakeNamingStrategy` does not apply to them.
+ */
+/**
+ * @description The base every table this application owns extends: a UUID primary key and the
+ * created/updated/deleted audit columns.
+ *
+ * Inheriting it is what makes soft deletes and audit timestamps uniform across the schema, so
+ * a query written against one table behaves the same way against another.
  */
 export abstract class AppBaseEntity {
   @ApiProperty()

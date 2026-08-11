@@ -1,11 +1,16 @@
 // NestJS Libraries
-import { ConfigService } from '@nestjs/config';
 import { Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 
 /**
  * Service dealing with app config based operations.
  *
- * @class
+/**
+ * @description Typed read access to the PostgreSQL connection settings.
+ *
+ * `getOrThrow` throughout: a database misconfiguration must stop startup, because the
+ * alternative is an application that boots healthy and then fails every request that touches
+ * persistence.
  */
 @Injectable()
 export class DatabasePostgresConfigService {

@@ -6,10 +6,10 @@ import { AppModule } from '../src/app.module';
 
 // NestJS Libraries
 import type { INestApplication } from '@nestjs/common';
-import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
+import type { TestingModule } from '@nestjs/testing';
 
-// Supertest
+// Testing
 import request from 'supertest';
 
 describe('Metrics (e2e)', () => {

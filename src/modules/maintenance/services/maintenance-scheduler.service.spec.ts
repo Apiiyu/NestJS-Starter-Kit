@@ -1,4 +1,7 @@
+// Constants
 import { MAINTENANCE_JOB } from '../constants/maintenance-queue.constant';
+
+// Services
 import { MaintenanceSchedulerService } from './maintenance-scheduler.service';
 
 describe('MaintenanceSchedulerService', () => {

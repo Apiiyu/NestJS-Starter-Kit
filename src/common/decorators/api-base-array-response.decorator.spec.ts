@@ -1,9 +1,13 @@
+// Decorators
+import { ApiBaseArrayResponse } from './api-base-array-response.decorator';
+
+// NestJS Libraries
 import { Controller, Get } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
+
+// Swagger
 import { ApiProperty, SwaggerModule } from '@nestjs/swagger';
 import type { OpenAPIObject } from '@nestjs/swagger';
-
-import { ApiBaseArrayResponse } from './api-base-array-response.decorator';
 
 interface IArraySchema {
   items?: unknown;

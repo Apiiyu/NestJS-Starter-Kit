@@ -1,9 +1,22 @@
+/**
+ * @description The token pair a successful login or refresh hands back.
+ *
+ * The refresh token is returned in the body rather than set as an httpOnly cookie: a cookie
+ * would trade XSS resistance for a CSRF surface on every state-changing route, and does nothing
+ * for the mobile and service clients this kit targets.
+ */
 export interface ILogin {
   accessToken: string;
   refreshToken: string;
 }
 
-/** Result of revoking a refresh token. */
+/**
+ * @description Result of revoking a refresh token.
+ *
+ * `revoked` reports whether a live token was actually found and revoked. Logout answers 200
+ * either way — reporting "no such token" would turn the endpoint into an oracle for which
+ * tokens exist.
+ */
 export interface ILogout {
   revoked: boolean;
 }
@@ -31,4 +44,20 @@ export interface IIssuedRefreshToken {
  */
 export interface IRotatedRefreshToken extends IIssuedRefreshToken {
   replacedId: string;
+}
+
+/**
+ * @description The row the rotation statement returns when it successfully claims a refresh
+ * token.
+ *
+ * Claiming is a single conditional UPDATE ... RETURNING rather than a read followed by a
+ * write, so that two concurrent uses of the same token cannot both succeed. These are the
+ * columns the caller needs afterwards to mint the replacement and, on reuse, to revoke the
+ * whole family.
+ */
+export interface IClaimedToken {
+  id: string;
+  userId: string;
+  familyId: string;
+  expiresAt: Date;
 }

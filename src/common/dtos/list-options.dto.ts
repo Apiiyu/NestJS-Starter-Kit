@@ -1,15 +1,22 @@
 // Class Transformer
 import { Transform, Type } from 'class-transformer';
 
-// Class Validators
+// Class Validator
 import { IsInt, IsOptional, Max, Min, ValidateIf } from 'class-validator';
 
 // Constants
 import { TRUE_VALUE } from '../constants/common.constant';
 
-// NestJS Libraries
+// Swagger
 import { ApiPropertyOptional } from '@nestjs/swagger';
 
+/**
+ * @description The query parameters every list endpoint accepts: paging, search, sorting, and
+ * the soft-delete toggle.
+ *
+ * Shared rather than redefined per module so paging behaves identically everywhere, and so a
+ * new option added here reaches every list endpoint at once.
+ */
 export class ListOptionDto {
   @ApiPropertyOptional()
   @ValidateIf((o) => o.isDeleted)

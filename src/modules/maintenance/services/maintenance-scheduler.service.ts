@@ -1,3 +1,6 @@
+// BullMQ
+import type { Queue } from 'bullmq';
+
 // Constants
 import {
   MAINTENANCE_CLEANUP_CRON,
@@ -8,9 +11,6 @@ import {
 // NestJS Libraries
 import { InjectQueue } from '@nestjs/bullmq';
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
-
-// BullMQ
-import type { Queue } from 'bullmq';
 
 /**
  * @description Schedules the repeatable cleanup job on boot.
@@ -25,6 +25,12 @@ export class MaintenanceSchedulerService implements OnModuleInit {
 
   constructor(@InjectQueue(MAINTENANCE_QUEUE) private readonly _queue: Queue) {}
 
+  /**
+   * @description Registers the repeatable cleanup job once the module is ready.
+   *
+   * BullMQ deduplicates a repeatable job by name and cron pattern, so every replica can run
+   * this at startup and the sweep is still scheduled exactly once across the fleet.
+   */
   public async onModuleInit(): Promise<void> {
     await this._queue.add(
       MAINTENANCE_JOB.CLEANUP_REFRESH_TOKENS,

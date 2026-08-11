@@ -20,6 +20,13 @@ export const USER_ROLE = {
   USER: 'user',
 } as const;
 
+/**
+ * @description The roles a user account may hold.
+ *
+ * Derived from `USER_ROLE` so the type and the runtime values cannot drift. `@Roles()` accepts
+ * only these, which turns a misspelled role from a guard that silently denies everyone into a
+ * compile error.
+ */
 export type UserRole = (typeof USER_ROLE)[keyof typeof USER_ROLE];
 
 /**

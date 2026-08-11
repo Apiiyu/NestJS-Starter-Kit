@@ -2,8 +2,8 @@
 import type { UserRole } from '../constants/role.constant';
 
 // NestJS Libraries
-import { SetMetadata } from '@nestjs/common';
 import type { CustomDecorator } from '@nestjs/common';
+import { SetMetadata } from '@nestjs/common';
 
 /**
  * @description Metadata key `RolesGuard` reads. Exported so the guard and the tests

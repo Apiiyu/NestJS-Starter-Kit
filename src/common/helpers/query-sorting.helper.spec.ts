@@ -1,5 +1,8 @@
-import type { SelectQueryBuilder } from 'typeorm';
+// Helpers
 import { QuerySortingHelper } from './query-sorting.helper';
+
+// TypeORM
+import type { SelectQueryBuilder } from 'typeorm';
 
 const makeBuilder = () => {
   const orderBy = jest.fn().mockReturnThis();

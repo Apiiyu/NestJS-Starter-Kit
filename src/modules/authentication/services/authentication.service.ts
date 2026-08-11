@@ -6,26 +6,33 @@ import { BAD_REQUEST_MSG, SALT_OR_ROUND } from '../../../common/constants/common
 import { ERROR_CODE } from '../../../common/constants/error-code.constant';
 import { TOKEN_TYPE } from '../../../common/constants/token.constant';
 
-// Crypto
-import { randomUUID } from 'node:crypto';
-
 // DTOs
 import { RegisterEmailDto } from '../dtos/register.dto';
 
-// Entities
-import { UsersEntity, UsersService } from '../../users';
-
 // Interfaces
 import type { ILogin, ILogout } from '../interfaces/authentication.interface';
+
+// Modules
+import { MailService } from '../../mail';
+import { UsersEntity, UsersService } from '../../users';
 
 // NestJS Libraries
 import { BadRequestException, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 
+// Node Libraries
+import { randomUUID } from 'node:crypto';
+
 // Services
 import { RefreshTokenService } from './refresh-token.service';
-import { MailService } from '../../mail';
 
+/**
+ * @description Owns the credential checks and token issuance behind login, registration,
+ * refresh, and logout.
+ *
+ * Password verification lives here and nowhere else, so there is exactly one place where a
+ * plaintext password is compared against a stored hash.
+ */
 @Injectable()
 export class AuthenticationService {
   private readonly _logger = new Logger(AuthenticationService.name);
@@ -36,31 +43,6 @@ export class AuthenticationService {
     private readonly _refreshTokenService: RefreshTokenService,
     private readonly _mailService: MailService,
   ) {}
-
-  /**
-   * @description Handle business logic for validating a user
-   */
-  public async validateUser(username: string, pass: string): Promise<UsersEntity | null> {
-    try {
-      const user = await this._usersService.findOneByUsername(username);
-      const isMatch = await bcrypt.compare(`${pass}`, user!.password);
-
-      if (!isMatch) {
-        throw new BadRequestException('Bad Request', {
-          cause: new Error(),
-          description: 'Invalid password',
-        });
-      }
-
-      return user;
-    } catch (error: unknown) {
-      const err = error as { response?: { error?: string }; message?: string };
-      throw new BadRequestException(BAD_REQUEST_MSG, {
-        cause: new Error(),
-        description: err.response?.error ?? err.message,
-      });
-    }
-  }
 
   /**
    * @description Handle business logic for logging in a user
@@ -108,6 +90,19 @@ export class AuthenticationService {
   }
 
   /**
+   * @description Revoke a refresh token.
+   *
+   * Not behind `JwtAuthGuard` on purpose. Requiring a live access token would make
+   * logout impossible fifteen minutes after the last request — exactly when a user is
+   * most likely to press it. Holding the refresh token is the authorisation, and
+   * revoking an unknown one is a silent no-op rather than a 404, so this cannot be
+   * used to probe which tokens exist.
+   */
+  public async logout(refreshToken: string): Promise<ILogout> {
+    return { revoked: await this._refreshTokenService.revoke(refreshToken) };
+  }
+
+  /**
    * @description Exchange a refresh token for a new pair.
    *
    * The user is re-read from the database rather than reconstructed from the old
@@ -137,19 +132,6 @@ export class AuthenticationService {
       accessToken: this._signAccessToken(user),
       refreshToken: rotated.token,
     };
-  }
-
-  /**
-   * @description Revoke a refresh token.
-   *
-   * Not behind `JwtAuthGuard` on purpose. Requiring a live access token would make
-   * logout impossible fifteen minutes after the last request — exactly when a user is
-   * most likely to press it. Holding the refresh token is the authorisation, and
-   * revoking an unknown one is a silent no-op rather than a 404, so this cannot be
-   * used to probe which tokens exist.
-   */
-  public async logout(refreshToken: string): Promise<ILogout> {
-    return { revoked: await this._refreshTokenService.revoke(refreshToken) };
   }
 
   /**
@@ -194,5 +176,30 @@ export class AuthenticationService {
       });
 
     return user;
+  }
+
+  /**
+   * @description Handle business logic for validating a user
+   */
+  public async validateUser(username: string, pass: string): Promise<UsersEntity | null> {
+    try {
+      const user = await this._usersService.findOneByUsername(username);
+      const isMatch = await bcrypt.compare(`${pass}`, user!.password);
+
+      if (!isMatch) {
+        throw new BadRequestException('Bad Request', {
+          cause: new Error(),
+          description: 'Invalid password',
+        });
+      }
+
+      return user;
+    } catch (error: unknown) {
+      const err = error as { response?: { error?: string }; message?: string };
+      throw new BadRequestException(BAD_REQUEST_MSG, {
+        cause: new Error(),
+        description: err.response?.error ?? err.message,
+      });
+    }
   }
 }

@@ -1,19 +1,20 @@
+// Class Transformer
+import { plainToInstance } from 'class-transformer';
+
 // Constants
 import { BAD_REQUEST_MSG } from '../../../common/constants/common.constant';
 import { ERROR_CODE } from '../../../common/constants/error-code.constant';
+import { FIELD_BY_UNIQUE_INDEX } from '../constants/users.constant';
 
 // DTOs
-import { CreateUserDto } from '../dtos/create-user.dto';
 import { ListOptionDto } from '../../../common/dtos/list-options.dto';
-import { PaginateDto } from '../../../common/dtos/paginate.dto';
 import { PageMetaDto } from '../../../common/dtos/page-meta.dto';
+import { PaginateDto } from '../../../common/dtos/paginate.dto';
+import { CreateUserDto } from '../dtos/create-user.dto';
 import { UpdateUserDto } from '../dtos/update-user.dto';
 
 // Entities
-import { USERS_UNIQUE_INDEX, UsersEntity } from '../entities/users.entity';
-
-// Class Transformer
-import { plainToInstance } from 'class-transformer';
+import { UsersEntity } from '../entities/users.entity';
 
 // Helpers
 import { getUniqueViolationConstraint } from '../../../common/helpers/postgres-error.helper';
@@ -35,16 +36,9 @@ import { UsersCacheService } from './users-cache.service';
 import { DataSource, EntityManager, Repository, SelectQueryBuilder } from 'typeorm';
 
 /**
- * @description Maps a violated unique index back to the field a client would
- * recognise. A `Map` rather than an object literal because the key comes from a
- * database error string, and looking that up as an object property is the exact
- * pattern `security/detect-object-injection` exists to flag.
+ * @description Owns every read and write of the user aggregate, including the cache
+ * invalidation that has to happen alongside a write.
  */
-const FIELD_BY_UNIQUE_INDEX = new Map<string, 'email' | 'username'>([
-  [USERS_UNIQUE_INDEX.EMAIL, 'email'],
-  [USERS_UNIQUE_INDEX.USERNAME, 'username'],
-]);
-
 @Injectable()
 export class UsersService {
   constructor(
@@ -55,23 +49,6 @@ export class UsersService {
   ) {}
 
   /**
-   * @description Rehydrate a cached plain object back into a real `UsersEntity`
-   * instance.
-   *
-   * `ClassSerializerInterceptor` (registered globally in `main.ts`) only strips
-   * `@Exclude()` fields — `password` here, the audit `*ById` columns on
-   * `AppBaseEntity` — from actual class instances. Keyv/Redis round-trips a value
-   * through `JSON.stringify`/`JSON.parse`, which drops the prototype chain entirely;
-   * returning that plain object straight from a cache hit would silently serve the
-   * password hash to the client. `enableImplicitConversion` also restores `Date`
-   * fields (`createdAt` etc.) from the ISO strings JSON produced, using the
-   * `emitDecoratorMetadata` TypeScript reflection this project already has enabled.
-   */
-  private _hydrate(plain: UsersEntity): UsersEntity {
-    return plainToInstance(UsersEntity, plain, { enableImplicitConversion: true });
-  }
-
-  /**
    * @description Handle added relationship
    * @param {SelectQueryBuilder<UsersEntity>} query
    *
@@ -79,35 +56,6 @@ export class UsersService {
    */
   private _addRelations(_query: SelectQueryBuilder<UsersEntity>): void {
     // ? Add relations here
-  }
-
-  /**
-   * @description Handle business logic for searching users
-   */
-  private _searchData(filters: ListOptionDto, query: SelectQueryBuilder<UsersEntity>): void {
-    query.andWhere(
-      `(
-        users.username ILIKE :search OR
-        users.email ILIKE :search
-      )
-      ${filters.isDeleted ? '' : 'AND users."deletedAt" IS NULL'}
-      `,
-      {
-        search: `%${filters.search}%`,
-      },
-    );
-  }
-
-  /**
-   * @description Handle sorting data
-   */
-  private _sortData(filters: ListOptionDto, query: SelectQueryBuilder<UsersEntity>): void {
-    const permitSort = {
-      username: 'users.username',
-      email: 'users.email',
-    };
-
-    QuerySortingHelper(query, filters.sortBy, permitSort);
   }
 
   /**
@@ -177,6 +125,52 @@ export class UsersService {
         description: err.response?.error ?? err.message,
       });
     }
+  }
+
+  /**
+   * @description Rehydrate a cached plain object back into a real `UsersEntity`
+   * instance.
+   *
+   * `ClassSerializerInterceptor` (registered globally in `main.ts`) only strips
+   * `@Exclude()` fields — `password` here, the audit `*ById` columns on
+   * `AppBaseEntity` — from actual class instances. Keyv/Redis round-trips a value
+   * through `JSON.stringify`/`JSON.parse`, which drops the prototype chain entirely;
+   * returning that plain object straight from a cache hit would silently serve the
+   * password hash to the client. `enableImplicitConversion` also restores `Date`
+   * fields (`createdAt` etc.) from the ISO strings JSON produced, using the
+   * `emitDecoratorMetadata` TypeScript reflection this project already has enabled.
+   */
+  private _hydrate(plain: UsersEntity): UsersEntity {
+    return plainToInstance(UsersEntity, plain, { enableImplicitConversion: true });
+  }
+
+  /**
+   * @description Handle business logic for searching users
+   */
+  private _searchData(filters: ListOptionDto, query: SelectQueryBuilder<UsersEntity>): void {
+    query.andWhere(
+      `(
+        users.username ILIKE :search OR
+        users.email ILIKE :search
+      )
+      ${filters.isDeleted ? '' : 'AND users."deletedAt" IS NULL'}
+      `,
+      {
+        search: `%${filters.search}%`,
+      },
+    );
+  }
+
+  /**
+   * @description Handle sorting data
+   */
+  private _sortData(filters: ListOptionDto, query: SelectQueryBuilder<UsersEntity>): void {
+    const permitSort = {
+      username: 'users.username',
+      email: 'users.email',
+    };
+
+    QuerySortingHelper(query, filters.sortBy, permitSort);
   }
 
   /**
@@ -312,6 +306,30 @@ export class UsersService {
   }
 
   /**
+   * @description Handle business logic for finding a user by email
+   */
+  public async findOneByEmail(email: string): Promise<UsersEntity | null> {
+    const cacheKey = this._usersCacheService.emailKey(email);
+    const cached = await this._usersCacheService.get<UsersEntity>(cacheKey);
+
+    if (cached) {
+      return this._hydrate(cached);
+    }
+
+    const user = await this._usersRepository.findOne({
+      where: { email },
+    });
+
+    if (!user) {
+      return null;
+    }
+
+    await this._usersCacheService.set(cacheKey, user);
+
+    return user;
+  }
+
+  /**
    * @description Handle business logic for finding a by specific id
    */
   public async findOneById(id: string, withDeleted = false): Promise<UsersEntity> {
@@ -369,30 +387,6 @@ export class UsersService {
         description: err.response?.error ?? err.message,
       });
     }
-  }
-
-  /**
-   * @description Handle business logic for finding a user by email
-   */
-  public async findOneByEmail(email: string): Promise<UsersEntity | null> {
-    const cacheKey = this._usersCacheService.emailKey(email);
-    const cached = await this._usersCacheService.get<UsersEntity>(cacheKey);
-
-    if (cached) {
-      return this._hydrate(cached);
-    }
-
-    const user = await this._usersRepository.findOne({
-      where: { email },
-    });
-
-    if (!user) {
-      return null;
-    }
-
-    await this._usersCacheService.set(cacheKey, user);
-
-    return user;
   }
 
   /**

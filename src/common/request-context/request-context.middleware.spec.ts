@@ -1,16 +1,18 @@
+// Express
+import type { NextFunction, Request, Response } from 'express';
+
+// Middlewares
+import { RequestContextMiddleware } from './request-context.middleware';
+
 // NestJS Libraries
 import { Test } from '@nestjs/testing';
 import type { TestingModule } from '@nestjs/testing';
 
-// Express
-import type { NextFunction, Request, Response } from 'express';
-
 // OpenTelemetry
-import { trace } from '@opentelemetry/api';
 import type { Span } from '@opentelemetry/api';
+import { trace } from '@opentelemetry/api';
 
-// Request Context
-import { RequestContextMiddleware } from './request-context.middleware';
+// Services
 import { RequestContextService } from './request-context.service';
 
 type RequestWithContext = Request & {

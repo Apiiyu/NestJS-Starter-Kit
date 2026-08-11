@@ -1,7 +1,7 @@
-// Entities
+// Modules
 import { UsersEntity } from '../../users';
 
-// NestJS Libraries
+// Swagger
 import { ApiProperty } from '@nestjs/swagger';
 
 // TypeORM

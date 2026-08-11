@@ -1,8 +1,8 @@
-// OpenTelemetry
-import type { Span } from '@opentelemetry/api';
-
 // Helpers
 import { getActiveTraceIdentifiers, getTraceIdentifiers } from './trace-context.helper';
+
+// OpenTelemetry
+import type { Span } from '@opentelemetry/api';
 
 const TRACE_ID = '0123456789abcdef0123456789abcdef';
 const SPAN_ID = '0123456789abcdef';

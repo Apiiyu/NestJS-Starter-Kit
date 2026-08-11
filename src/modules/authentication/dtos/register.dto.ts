@@ -8,9 +8,16 @@ import {
   REGEX_PASSWORD,
 } from '../../../common/constants/regex.constant';
 
-// NestJS Libraries
+// Swagger
 import { ApiProperty } from '@nestjs/swagger';
 
+/**
+ * @description What a self-service registration request must supply.
+ *
+ * This is where the password policy is enforced, and the only place it is. Length is checked
+ * by `@MinLength`/`@MaxLength` rather than folded into the pattern, so a too-short password is
+ * told it is too short instead of failing one opaque regex that stands for four separate rules.
+ */
 export class RegisterEmailDto {
   @ApiProperty()
   @IsNotEmpty()

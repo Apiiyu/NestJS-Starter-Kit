@@ -1,4 +1,7 @@
+// Constants
 import { USER_ROLE } from '../constants/role.constant';
+
+// Services
 import { RequestContextService } from './request-context.service';
 
 describe('RequestContextService', () => {

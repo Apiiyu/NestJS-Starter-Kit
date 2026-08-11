@@ -1,22 +1,22 @@
 import 'reflect-metadata';
 
-// Node.js
-import path from 'node:path';
-import { randomUUID } from 'node:crypto';
-
-// Test
+// Modules
 import { setE2EContainerState, stopE2EContainers } from './e2e-container-state';
 
-// Testcontainers
-import type { StartedTestContainer } from 'testcontainers';
-import { GenericContainer, Wait } from 'testcontainers';
-
-// TypeORM
-import type { DataSourceOptions } from 'typeorm';
-import { DataSource } from 'typeorm';
+// Node Libraries
+import { randomUUID } from 'node:crypto';
+import path from 'node:path';
 
 // Strategies
 import { SnakeNamingStrategy } from '../src/database/postgres/snake-naming.strategy';
+
+// Testcontainers
+import { GenericContainer, Wait } from 'testcontainers';
+import type { StartedTestContainer } from 'testcontainers';
+
+// TypeORM
+import { DataSource } from 'typeorm';
+import type { DataSourceOptions } from 'typeorm';
 
 const DATABASE_NAME = 'nestjs_starter_kit_e2e';
 const DATABASE_PASSWORD = 'postgres';

@@ -2,6 +2,13 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
+/**
+ * @description Typed read access to the SMTP settings the mail transport is built from.
+ *
+ * The defaults describe the Mailpit container `bun run dev:up` starts, so a developer who has
+ * configured nothing still gets working local mail delivered to a catch-all inbox rather than
+ * an authentication failure against a real provider.
+ */
 @Injectable()
 export class MailConfigService {
   constructor(private readonly _configService: ConfigService) {}

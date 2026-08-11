@@ -1,9 +1,6 @@
 // Controllers
 import { AuthenticationController } from './controllers/authentication.controller';
 
-// Types
-import type ms from 'ms';
-
 // Entities
 import { RefreshTokenEntity } from './entities/refresh-token.entity';
 
@@ -27,6 +24,16 @@ import { RefreshTokenService } from './services/refresh-token.service';
 import { JwtStrategy } from '../../common/strategies/jwt.strategy';
 import { LocalStrategy } from '../../common/strategies/local.strategy';
 
+// Third Party Libraries
+import type ms from 'ms';
+
+/**
+ * @description The authentication feature: Passport strategies, JWT signing, refresh-token
+ * rotation, and the endpoints that expose them.
+ *
+ * `JwtModule` is registered asynchronously because its secret and lifetimes come from validated
+ * configuration, which is not available while decorators are being evaluated.
+ */
 @Module({
   imports: [
     JwtConfigModule,

@@ -1,5 +1,13 @@
+// Swagger
 import { ApiProperty } from '@nestjs/swagger';
 
+/**
+ * @description Pagination metadata returned alongside a page of results.
+ *
+ * Carries the derived `hasNextPage`/`hasPreviousPage` flags rather than leaving the client to
+ * compute them from page, limit, and total — the arithmetic is easy to get wrong at the last
+ * page, and every client would have to repeat it.
+ */
 export class PageMetaDto {
   @ApiProperty()
   public readonly hasPreviousPage?: boolean = false;

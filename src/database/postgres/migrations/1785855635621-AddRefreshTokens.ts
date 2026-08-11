@@ -1,3 +1,4 @@
+// TypeORM
 import type { MigrationInterface, QueryRunner } from 'typeorm';
 
 /**
@@ -27,6 +28,11 @@ import type { MigrationInterface, QueryRunner } from 'typeorm';
 export class AddRefreshTokens1785855635621 implements MigrationInterface {
   name = 'AddRefreshTokens1785855635621';
 
+  /**
+   * @description Creates the `refresh_tokens` table and its supporting indexes.
+   *
+   * @param queryRunner The connection the migration runner supplies.
+   */
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(
       `CREATE TABLE "refresh_tokens" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "tokenHash" character(64) NOT NULL, "userId" uuid NOT NULL, "familyId" uuid NOT NULL, "expiresAt" TIMESTAMP WITH TIME ZONE NOT NULL, "revokedAt" TIMESTAMP WITH TIME ZONE, "replacedById" uuid, "createdAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), CONSTRAINT "PK_7d8bee0204106019488c4c50ffa" PRIMARY KEY ("id"))`,
@@ -48,6 +54,12 @@ export class AddRefreshTokens1785855635621 implements MigrationInterface {
     );
   }
 
+  /**
+   * @description Drops the `refresh_tokens` table. Destructive — every live session is
+   * invalidated, because the tokens they depend on cease to exist.
+   *
+   * @param queryRunner The connection the migration runner supplies.
+   */
   public async down(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(
       `ALTER TABLE "refresh_tokens" DROP CONSTRAINT "FK_2ed2be3b03a9eebf7123f2a9412"`,

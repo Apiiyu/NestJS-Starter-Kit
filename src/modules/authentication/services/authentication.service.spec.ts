@@ -2,10 +2,10 @@
 import * as bcrypt from 'bcrypt';
 
 // Constants
-import { ERROR_CODE } from '../../../common/constants/error-code.constant';
 import { SALT_OR_ROUND } from '../../../common/constants/common.constant';
-import { TOKEN_TYPE } from '../../../common/constants/token.constant';
+import { ERROR_CODE } from '../../../common/constants/error-code.constant';
 import { USER_ROLE } from '../../../common/constants/role.constant';
+import { TOKEN_TYPE } from '../../../common/constants/token.constant';
 
 // DTOs
 import { RegisterEmailDto } from '../dtos/register.dto';
@@ -20,14 +20,14 @@ import { JwtConfigModule } from '../../../configurations/jwt/jwt-configuration.m
 import { ConflictException, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
-import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
+import type { TestingModule } from '@nestjs/testing';
 
 // Services
-import { AuthenticationService } from './authentication.service';
-import { RefreshTokenService } from './refresh-token.service';
 import { MailService } from '../../mail/services/mail.service';
 import { UsersService } from '../../users/services/users.service';
+import { AuthenticationService } from './authentication.service';
+import { RefreshTokenService } from './refresh-token.service';
 
 jest.mock('bcrypt', () => ({
   compare: jest.fn(),

@@ -1,9 +1,6 @@
 // Constants
 import { ERROR_CODE } from '../../../common/constants/error-code.constant';
 
-// Crypto
-import { createHash, randomBytes, randomUUID } from 'node:crypto';
-
 // Entities
 import { RefreshTokenEntity } from '../entities/refresh-token.entity';
 
@@ -12,6 +9,7 @@ import { parseDurationToMs } from '../../../common/helpers/duration.helper';
 
 // Interfaces
 import type {
+  IClaimedToken,
   IIssuedRefreshToken,
   IRotatedRefreshToken,
 } from '../interfaces/authentication.interface';
@@ -20,34 +18,19 @@ import type {
 import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 
+// Node Libraries
+import { createHash, randomBytes, randomUUID } from 'node:crypto';
+
 // Services
 import { JwtConfigService } from '../../../configurations/jwt/jwt-configuration.service';
 
 // TypeORM
 import { IsNull, LessThan, Repository } from 'typeorm';
 
-/** Shape of the row the rotation statement returns. */
-interface IClaimedToken {
-  id: string;
-  userId: string;
-  familyId: string;
-  expiresAt: Date;
-}
-
 /**
- * @description TypeORM hands back `[rows, rowCount]` for UPDATE and DELETE on Postgres
- * but a bare rows array for SELECT, and the type is `any` either way. Reading `raw[0]`
- * blindly would therefore yield the rows array on an UPDATE and the first row on a
- * SELECT — a bug that shows up only at runtime, and only on one of the two paths.
+ * @description Issues, rotates, and revokes refresh tokens, and owns the reuse detection that
+ * turns a stolen token into a revoked family rather than a silent second session.
  */
-const unwrapReturning = <T>(raw: unknown): T[] => {
-  if (!Array.isArray(raw)) {
-    return [];
-  }
-
-  return (Array.isArray(raw[0]) ? raw[0] : raw) as T[];
-};
-
 @Injectable()
 export class RefreshTokenService {
   private readonly _logger = new Logger(RefreshTokenService.name);
@@ -58,12 +41,26 @@ export class RefreshTokenService {
     private readonly _jwtConfigService: JwtConfigService,
   ) {}
 
-  private _hash(token: string): string {
-    return createHash('sha256').update(token).digest('hex');
-  }
-
+  /**
+   * @description The expiry timestamp a newly issued refresh token should carry, from the
+   * configured lifetime.
+   */
   private _expiresAt(): Date {
     return new Date(Date.now() + parseDurationToMs(this._jwtConfigService.jwtRefreshExp));
+  }
+
+  /**
+   * @description Hashes a refresh token for storage and lookup.
+   *
+   * The database only ever holds this digest, so a dump of the table yields nothing usable.
+   * Plain SHA-256 rather than bcrypt on purpose: the token is 32 random bytes, not a
+   * human-chosen secret, so there is nothing for a slow hash to defend against — and lookups
+   * happen on every refresh, where a deliberately slow hash would be a real cost.
+   *
+   * @param token The raw token as presented by the client.
+   */
+  private _hash(token: string): string {
+    return createHash('sha256').update(token).digest('hex');
   }
 
   /**
@@ -108,6 +105,25 @@ export class RefreshTokenService {
   }
 
   /**
+   * @description Normalises the raw result of a `RETURNING` statement into a plain array of
+   * rows.
+   *
+   * TypeORM hands back `[rows, rowCount]` for UPDATE and DELETE on Postgres but a bare rows
+   * array for SELECT, and the type is `any` either way. Reading `raw[0]` blindly would
+   * therefore yield the rows array on an UPDATE and the first row on a SELECT — a bug that
+   * shows up only at runtime, and only on one of the two paths.
+   *
+   * @param raw Whatever the driver returned for the statement.
+   */
+  private _unwrapReturning<T>(raw: unknown): T[] {
+    if (!Array.isArray(raw)) {
+      return [];
+    }
+
+    return (Array.isArray(raw[0]) ? raw[0] : raw) as T[];
+  }
+
+  /**
    * @description Mint a refresh token for a user.
    *
    * Omit `familyId` to start a new chain — that is what a fresh login does. Pass the
@@ -136,54 +152,19 @@ export class RefreshTokenService {
   }
 
   /**
-   * @description Spend a refresh token and return its successor.
+   * @description Delete every row past its expiry, revoked or not.
    *
-   * The claim is a single `UPDATE ... WHERE "revokedAt" IS NULL RETURNING`, which is
-   * the entire concurrency story. Postgres evaluates the predicate and writes the row
-   * under one lock, so of two requests racing with the same token exactly one gets a
-   * row back and the other gets nothing — no window, no advisory lock, no
-   * read-then-write. Splitting this into "look it up, check it, then revoke it" would
-   * reopen that window and make a stolen token usable twice.
+   * Used by the maintenance queue's hourly cleanup job. An expired token can never be
+   * rotated, replayed, or presented successfully again, so keeping the row past
+   * `expiresAt` serves no purpose — a hard delete is safe here, unlike `revoke`, which
+   * must never remove the row while it can still be replay-detected.
    */
-  public async rotate(presentedToken: string): Promise<IRotatedRefreshToken> {
-    const tokenHash = this._hash(presentedToken);
+  public async purgeExpired(): Promise<number> {
+    const result = await this._refreshTokenRepository.delete({
+      expiresAt: LessThan(new Date()),
+    });
 
-    const claimed = unwrapReturning<IClaimedToken>(
-      await this._refreshTokenRepository.query(
-        `UPDATE "refresh_tokens"
-            SET "revokedAt" = now()
-          WHERE "tokenHash" = $1
-            AND "revokedAt" IS NULL
-      RETURNING "id", "userId", "familyId", "expiresAt"`,
-        [tokenHash],
-      ),
-    );
-
-    const current = claimed[0];
-
-    if (!current) {
-      await this._rejectUnclaimable(tokenHash);
-    }
-
-    /**
-     * Expiry is checked after the claim, not folded into the `WHERE`. In the predicate
-     * it would make an expired token indistinguishable from a replayed one, and those
-     * deserve very different answers: one is a routine "log in again", the other means
-     * a credential leaked and every session has to die.
-     */
-    if (current.expiresAt.getTime() <= Date.now()) {
-      throw new UnauthorizedException({
-        errorCode: ERROR_CODE.AUTH_REFRESH_EXPIRED,
-        message: 'Refresh token has expired. Please log in again.',
-      });
-    }
-
-    const successor = await this.issue(current.userId, current.familyId);
-
-    // ? Forensics only: lets a compromised chain be walked forward from the leak point
-    await this._refreshTokenRepository.update(current.id, { replacedById: successor.id });
-
-    return { ...successor, replacedId: current.id };
+    return result.affected ?? 0;
   }
 
   /**
@@ -219,18 +200,53 @@ export class RefreshTokenService {
   }
 
   /**
-   * @description Delete every row past its expiry, revoked or not.
+   * @description Spend a refresh token and return its successor.
    *
-   * Used by the maintenance queue's hourly cleanup job. An expired token can never be
-   * rotated, replayed, or presented successfully again, so keeping the row past
-   * `expiresAt` serves no purpose — a hard delete is safe here, unlike `revoke`, which
-   * must never remove the row while it can still be replay-detected.
+   * The claim is a single `UPDATE ... WHERE "revokedAt" IS NULL RETURNING`, which is
+   * the entire concurrency story. Postgres evaluates the predicate and writes the row
+   * under one lock, so of two requests racing with the same token exactly one gets a
+   * row back and the other gets nothing — no window, no advisory lock, no
+   * read-then-write. Splitting this into "look it up, check it, then revoke it" would
+   * reopen that window and make a stolen token usable twice.
    */
-  public async purgeExpired(): Promise<number> {
-    const result = await this._refreshTokenRepository.delete({
-      expiresAt: LessThan(new Date()),
-    });
+  public async rotate(presentedToken: string): Promise<IRotatedRefreshToken> {
+    const tokenHash = this._hash(presentedToken);
 
-    return result.affected ?? 0;
+    const claimed = this._unwrapReturning<IClaimedToken>(
+      await this._refreshTokenRepository.query(
+        `UPDATE "refresh_tokens"
+            SET "revokedAt" = now()
+          WHERE "tokenHash" = $1
+            AND "revokedAt" IS NULL
+      RETURNING "id", "userId", "familyId", "expiresAt"`,
+        [tokenHash],
+      ),
+    );
+
+    const current = claimed[0];
+
+    if (!current) {
+      await this._rejectUnclaimable(tokenHash);
+    }
+
+    /**
+     * Expiry is checked after the claim, not folded into the `WHERE`. In the predicate
+     * it would make an expired token indistinguishable from a replayed one, and those
+     * deserve very different answers: one is a routine "log in again", the other means
+     * a credential leaked and every session has to die.
+     */
+    if (current.expiresAt.getTime() <= Date.now()) {
+      throw new UnauthorizedException({
+        errorCode: ERROR_CODE.AUTH_REFRESH_EXPIRED,
+        message: 'Refresh token has expired. Please log in again.',
+      });
+    }
+
+    const successor = await this.issue(current.userId, current.familyId);
+
+    // ? Forensics only: lets a compromised chain be walked forward from the leak point
+    await this._refreshTokenRepository.update(current.id, { replacedById: successor.id });
+
+    return { ...successor, replacedId: current.id };
   }
 }

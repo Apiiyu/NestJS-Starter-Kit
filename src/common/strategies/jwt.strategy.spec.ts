@@ -1,9 +1,15 @@
-import { UnauthorizedException } from '@nestjs/common';
-
-import type { JwtConfigService } from '../../configurations/jwt/jwt-configuration.service';
+// Constants
 import { ERROR_CODE } from '../constants/error-code.constant';
 import { USER_ROLE } from '../constants/role.constant';
 import { TOKEN_TYPE } from '../constants/token.constant';
+
+// NestJS Libraries
+import { UnauthorizedException } from '@nestjs/common';
+
+// Services
+import type { JwtConfigService } from '../../configurations/jwt/jwt-configuration.service';
+
+// Strategies
 import { JwtStrategy } from './jwt.strategy';
 
 const jwtConfig = {

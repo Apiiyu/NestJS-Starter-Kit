@@ -1,3 +1,6 @@
+// Keyv
+import { createKeyv } from '@keyv/redis';
+
 // Modules
 import { RedisConfigModule } from '../redis/redis-configuration.module';
 
@@ -5,12 +8,15 @@ import { RedisConfigModule } from '../redis/redis-configuration.module';
 import { CacheModule } from '@nestjs/cache-manager';
 import { Module } from '@nestjs/common';
 
-// Redis
-import { createKeyv } from '@keyv/redis';
-
 // Services
 import { RedisConfigService } from '../redis/redis-configuration.service';
 
+/**
+ * @description Registers the Keyv-backed Redis cache globally.
+ *
+ * Global because caching is cross-cutting: making every feature module import this one would
+ * be ceremony with no boundary value, since the cache is keyed by the caller anyway.
+ */
 @Module({
   imports: [
     CacheModule.registerAsync({

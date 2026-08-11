@@ -4,20 +4,20 @@ import { AuthenticationController } from './authentication.controller';
 // DTOs
 import { LoginUsernameDto, RefreshTokenDto } from '../dtos/login.dto';
 
-// NestJS Libraries
-import { JwtModule } from '@nestjs/jwt';
-import { PassportModule } from '@nestjs/passport';
-import type { TestingModule } from '@nestjs/testing';
-import { Test } from '@nestjs/testing';
-
 // Modules
 import { JwtConfigModule } from '../../../configurations/jwt/jwt-configuration.module';
 
+// NestJS Libraries
+import { JwtModule } from '@nestjs/jwt';
+import { PassportModule } from '@nestjs/passport';
+import { Test } from '@nestjs/testing';
+import type { TestingModule } from '@nestjs/testing';
+
 // Services
-import { AuthenticationService } from '../services/authentication.service';
-import { RefreshTokenService } from '../services/refresh-token.service';
 import { MailService } from '../../mail/services/mail.service';
 import { UsersService } from '../../users/services/users.service';
+import { AuthenticationService } from '../services/authentication.service';
+import { RefreshTokenService } from '../services/refresh-token.service';
 
 describe('AuthenticationController', () => {
   let controller: AuthenticationController;

@@ -1,4 +1,4 @@
-// Validation
+// Validations
 import { validateEnvironment } from './app-env.validation';
 
 const validEnvironment = {

@@ -1,11 +1,14 @@
 // NestJS Libraries
-import { ConfigService } from '@nestjs/config';
 import { Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 
 /**
- * Service dealing with app config based operations.
+/**
+ * @description Typed read access to the application-level settings — name, environment, host
+ * and port, CORS origins, proxy trust, and the metrics API key.
  *
- * @class
+ * The one place these are read from. A service reaching into `process.env` directly would
+ * bypass the boot-time validation and could see a value the validator would have rejected.
  */
 @Injectable()
 export class AppConfigurationsService {

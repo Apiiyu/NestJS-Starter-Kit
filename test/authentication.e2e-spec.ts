@@ -1,21 +1,21 @@
-// Constants
-import { ERROR_CODE } from '../src/common/constants/error-code.constant';
-
-// Crypto
-import { randomUUID } from 'node:crypto';
-
 // Bootstrap
 import { configureApp } from '../src/common/bootstrap/configure-app';
+
+// Constants
+import { ERROR_CODE } from '../src/common/constants/error-code.constant';
 
 // Modules
 import { AppModule } from '../src/app.module';
 
 // NestJS Libraries
 import type { INestApplication } from '@nestjs/common';
-import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
+import type { TestingModule } from '@nestjs/testing';
 
-// Supertest
+// Node Libraries
+import { randomUUID } from 'node:crypto';
+
+// Testing
 import request from 'supertest';
 
 interface IControllerResponse<T> {

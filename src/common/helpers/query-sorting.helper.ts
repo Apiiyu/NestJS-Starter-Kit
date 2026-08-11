@@ -1,5 +1,18 @@
+// TypeORM
 import type { SelectQueryBuilder } from 'typeorm';
 
+/**
+ * @description Applies `sortBy` clauses to a query, accepting only columns the caller has
+ * explicitly permitted.
+ *
+ * The allowlist is the entire point. A sort column taken from the query string and pasted into
+ * `orderBy()` is a SQL injection point, because that clause cannot be parameterised — so
+ * anything not named in `permitColumns` is refused rather than escaped.
+ *
+ * @param queryBuilder The query to add ordering to.
+ * @param sortBy Raw `column|direction` pairs as they arrived from the client.
+ * @param permitColumns Map of accepted client-facing names to their qualified SQL columns.
+ */
 export const QuerySortingHelper = <T extends object>(
   queryBuilder: SelectQueryBuilder<T>,
   sortBy: string[],

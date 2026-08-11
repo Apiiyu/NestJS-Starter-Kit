@@ -14,4 +14,10 @@ export const TOKEN_TYPE = {
   REFRESH: 'refresh',
 } as const;
 
+/**
+ * @description Which kind of token a payload represents.
+ *
+ * Carried as a claim so an access token cannot be presented where a refresh token is expected,
+ * or the reverse. Without it, both are just signed JWTs and either would satisfy either check.
+ */
 export type TokenType = (typeof TOKEN_TYPE)[keyof typeof TOKEN_TYPE];

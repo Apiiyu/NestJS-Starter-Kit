@@ -12,6 +12,14 @@ import { ExtractJwt, Strategy } from 'passport-jwt';
 // Services
 import { JwtConfigService } from '../../configurations/jwt/jwt-configuration.service';
 
+/**
+ * @description Validates the bearer token on every authenticated request: signature, issuer,
+ * and expiry.
+ *
+ * The issuer check matters as much as the signature. A token signed with the same secret by a
+ * different service would otherwise be accepted here, so sharing a secret across services
+ * would silently make their tokens interchangeable.
+ */
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(jwtConfigService: JwtConfigService) {
@@ -29,6 +37,17 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     });
   }
 
+  /**
+   * @description Turns a verified token payload into the user object the rest of the request
+   * sees on `request.user`.
+   *
+   * Passport only calls this after the signature, issuer, and expiry have already passed, so
+   * the payload can be trusted here — but only as far as it goes. It reflects what was true
+   * when the token was issued, which is why anything that must be current (a ban, a revoked
+   * role) is checked against the database by a guard rather than read from these claims.
+   *
+   * @param payload The decoded and verified JWT claims.
+   */
   public validate(payload: IValidateJWTStrategy): IRequestUser {
     /**
      * Refresh tokens carry the same signature as access tokens, so `passport-jwt` has

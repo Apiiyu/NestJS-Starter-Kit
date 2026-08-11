@@ -1,4 +1,7 @@
+// Constants
 import { MAIL_JOB } from '../constants/mail-queue.constant';
+
+// Services
 import { MailService } from './mail.service';
 
 describe('MailService', () => {

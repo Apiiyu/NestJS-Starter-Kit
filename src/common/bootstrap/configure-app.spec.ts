@@ -1,9 +1,9 @@
-// Bootstrap
-import { configureApp } from './configure-app';
-
 // Interceptors
 import { CustomBaseResponseInterceptor } from '../interceptors/base-response.interceptor';
 import { ContextInterceptor } from '../interceptors/context.interceptor';
+
+// Modules
+import { configureApp } from './configure-app';
 
 // NestJS Libraries
 import { ClassSerializerInterceptor, ValidationPipe, VersioningType } from '@nestjs/common';

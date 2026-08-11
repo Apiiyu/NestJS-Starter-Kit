@@ -1,8 +1,8 @@
-// NestJS Libraries
-import { StreamableFile } from '@nestjs/common';
-
 // Controllers
 import { MetricsController } from './metrics.controller';
+
+// NestJS Libraries
+import { StreamableFile } from '@nestjs/common';
 
 // Services
 import type { PrometheusMetricsService } from './prometheus-metrics.service';

@@ -1,12 +1,11 @@
-// Dotenv
 import 'dotenv/config';
 
 // Strategies
 import { SnakeNamingStrategy } from './snake-naming.strategy';
 
 // TypeORM
-import type { DataSourceOptions } from 'typeorm';
 import { DataSource } from 'typeorm';
+import type { DataSourceOptions } from 'typeorm';
 import type { SeederOptions } from 'typeorm-extension';
 
 /**

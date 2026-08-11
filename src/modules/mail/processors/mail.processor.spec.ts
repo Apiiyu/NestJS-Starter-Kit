@@ -1,6 +1,10 @@
+// BullMQ
 import type { Job } from 'bullmq';
 
+// Constants
 import { MAIL_JOB } from '../constants/mail-queue.constant';
+
+// Processors
 import { MailProcessor } from './mail.processor';
 
 const mockSendMail = jest.fn();

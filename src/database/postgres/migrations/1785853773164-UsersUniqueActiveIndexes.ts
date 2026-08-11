@@ -1,3 +1,4 @@
+// TypeORM
 import type { MigrationInterface, QueryRunner } from 'typeorm';
 
 /**
@@ -21,6 +22,11 @@ import type { MigrationInterface, QueryRunner } from 'typeorm';
 export class UsersUniqueActiveIndexes1785853773164 implements MigrationInterface {
   name = 'UsersUniqueActiveIndexes1785853773164';
 
+  /**
+   * @description Adds the partial unique indexes on email and username, scoped to live rows.
+   *
+   * @param queryRunner The connection the migration runner supplies.
+   */
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(
       `CREATE UNIQUE INDEX "UQ_users_email_active" ON "users" ("email") WHERE "deletedAt" IS NULL`,
@@ -30,6 +36,11 @@ export class UsersUniqueActiveIndexes1785853773164 implements MigrationInterface
     );
   }
 
+  /**
+   * @description Drops the partial unique indexes, restoring the previous uniqueness rules.
+   *
+   * @param queryRunner The connection the migration runner supplies.
+   */
   public async down(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`DROP INDEX "public"."UQ_users_username_active"`);
     await queryRunner.query(`DROP INDEX "public"."UQ_users_email_active"`);

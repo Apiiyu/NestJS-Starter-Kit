@@ -1,11 +1,11 @@
-// NestJS Libraries
-import { UnauthorizedException } from '@nestjs/common';
+// Constants
+import { ERROR_CODE } from '../constants/error-code.constant';
 
 // Express
 import type { Request } from 'express';
 
-// Constants
-import { ERROR_CODE } from '../constants/error-code.constant';
+// NestJS Libraries
+import { UnauthorizedException } from '@nestjs/common';
 
 // Services
 import type { AppConfigurationsService } from '../../configurations/app/app-configuration.service';

@@ -3,14 +3,12 @@ import { Exclude } from 'class-transformer';
 
 // Constants
 import { USER_ROLE, USER_ROLES } from '../../../common/constants/role.constant';
+import type { UserRole } from '../../../common/constants/role.constant';
 
 // Entities
 import { AppBaseEntity } from '../../../common/entities/base.entity';
 
-// Types
-import type { UserRole } from '../../../common/constants/role.constant';
-
-// NestJS Libraries
+// Swagger
 import { ApiProperty } from '@nestjs/swagger';
 
 // TypeORM
@@ -30,7 +28,12 @@ export const USERS_UNIQUE_INDEX = {
 } as const;
 
 /**
- * The uniqueness predicates are scoped to live rows. `@DeleteDateColumn` keeps
+ * @description A user account: the credentials it logs in with and the role it holds.
+ *
+ * `password` carries `@Exclude()` and must keep it — the hash has to leave the database for
+ * verification, and serialisation is the only thing standing between it and a response body.
+ *
+ * The uniqueness predicates below are scoped to live rows. `@DeleteDateColumn` keeps
  * soft-deleted users in the table, and an unscoped `UNIQUE` would let one deleted
  * account permanently reserve an email address nobody can ever reclaim.
  */

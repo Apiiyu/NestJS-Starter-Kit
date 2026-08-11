@@ -1,7 +1,12 @@
+// Interceptors
+import { CustomBaseResponseInterceptor } from './base-response.interceptor';
+
+// NestJS Libraries
 import type { ExecutionContext } from '@nestjs/common';
 import { StreamableFile } from '@nestjs/common';
+
+// RxJS
 import { of } from 'rxjs';
-import { CustomBaseResponseInterceptor } from './base-response.interceptor';
 
 const makeContext = (statusCode = 200) =>
   ({

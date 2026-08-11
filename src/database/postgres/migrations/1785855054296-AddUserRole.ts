@@ -1,3 +1,4 @@
+// TypeORM
 import type { MigrationInterface, QueryRunner } from 'typeorm';
 
 /**
@@ -25,6 +26,11 @@ import type { MigrationInterface, QueryRunner } from 'typeorm';
 export class AddUserRole1785855054296 implements MigrationInterface {
   name = 'AddUserRole1785855054296';
 
+  /**
+   * @description Adds the `role` column to `users`.
+   *
+   * @param queryRunner The connection the migration runner supplies.
+   */
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`CREATE TYPE "public"."user_role_enum" AS ENUM('admin', 'user')`);
     await queryRunner.query(
@@ -32,6 +38,11 @@ export class AddUserRole1785855054296 implements MigrationInterface {
     );
   }
 
+  /**
+   * @description Removes the `role` column. Destructive — every stored role is lost.
+   *
+   * @param queryRunner The connection the migration runner supplies.
+   */
   public async down(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`ALTER TABLE "users" DROP COLUMN "role"`);
     await queryRunner.query(`DROP TYPE "public"."user_role_enum"`);

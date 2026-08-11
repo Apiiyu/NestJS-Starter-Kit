@@ -2,16 +2,25 @@
 import { DatabasePostgresConfigModule } from '../../configurations/database/postgres/postgres-configuration.module';
 
 // NestJS Libraries
-import { TypeOrmModule, TypeOrmModuleAsyncOptions } from '@nestjs/typeorm';
 import { Module } from '@nestjs/common';
+import { TypeOrmModule, TypeOrmModuleAsyncOptions } from '@nestjs/typeorm';
 
 // Services
 import { DatabasePostgresConfigService } from '../../configurations/database/postgres/postgres-configuration.service';
 
-// TypeORM
-import { DatabaseType } from 'typeorm';
+// Strategies
 import { SnakeNamingStrategy } from './snake-naming.strategy';
 
+// TypeORM
+import { DatabaseType } from 'typeorm';
+
+/**
+ * @description Builds the runtime TypeORM connection from validated configuration.
+ *
+ * Its entity and naming-strategy settings duplicate `postgres-data-source.ts` deliberately.
+ * That file is what the CLI loads; if the two disagree, `migration:generate` emits empty or
+ * endlessly repeating migrations, because the CLI would see a different schema than the app.
+ */
 @Module({
   imports: [
     TypeOrmModule.forRootAsync({

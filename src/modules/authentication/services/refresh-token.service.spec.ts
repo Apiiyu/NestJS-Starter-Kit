@@ -1,15 +1,24 @@
+// Constants
+import { ERROR_CODE } from '../../../common/constants/error-code.constant';
+
+// Entities
+import { RefreshTokenEntity } from '../entities/refresh-token.entity';
+
+// NestJS Libraries
+import { UnauthorizedException } from '@nestjs/common';
+import { Test } from '@nestjs/testing';
+import type { TestingModule } from '@nestjs/testing';
+import { getRepositoryToken } from '@nestjs/typeorm';
+
+// Node Libraries
 import { createHash } from 'node:crypto';
 
-import { UnauthorizedException } from '@nestjs/common';
-import type { TestingModule } from '@nestjs/testing';
-import { Test } from '@nestjs/testing';
-import { getRepositoryToken } from '@nestjs/typeorm';
-import { IsNull } from 'typeorm';
-
-import { ERROR_CODE } from '../../../common/constants/error-code.constant';
+// Services
 import { JwtConfigService } from '../../../configurations/jwt/jwt-configuration.service';
-import { RefreshTokenEntity } from '../entities/refresh-token.entity';
 import { RefreshTokenService } from './refresh-token.service';
+
+// TypeORM
+import { IsNull } from 'typeorm';
 
 const USER_ID = '11111111-1111-1111-1111-111111111111';
 const FAMILY_ID = '22222222-2222-2222-2222-222222222222';

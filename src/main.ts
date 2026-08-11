@@ -1,13 +1,13 @@
 import './instrumentation';
 
+// Bootstrap
+import { configureApp } from './common/bootstrap/configure-app';
+
 // Compression
 import compression from 'compression';
 
 // Helmet
 import helmet from 'helmet';
-
-// Bootstrap
-import { configureApp } from './common/bootstrap/configure-app';
 
 // Modules
 import { AppModule } from './app.module';
@@ -26,6 +26,14 @@ import { AppConfigurationsService } from './configurations/app/app-configuration
 // Setups
 import { swaggerSetup } from './configurations/swagger/swagger.setup';
 
+/**
+ * @description Boots the HTTP application: creates the Nest app, applies the shared
+ * configuration, adds the security and compression middleware, and starts listening.
+ *
+ * Anything added here and not in `configure-app.ts` is invisible to the E2E suite, which builds
+ * its application from `configureApp` alone. Keep pipeline behaviour there; keep process-level
+ * concerns — helmet, compression, CORS, shutdown hooks, the listen call — here.
+ */
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     bufferLogs: true,

@@ -21,6 +21,8 @@
     "dev:reset": "docker compose down -v",
     "dev:up": "docker compose up -d postgres redis redis-queue mailpit jaeger",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
+    "format:imports": "bun scripts/sort-imports.ts",
+    "lint:conventions": "bun scripts/check-conventions.ts",
     "generate:module": "bun generate-module.mjs",
     "sbom": "bun scripts/generate-sbom.ts",
     "sbom:validate": "bun scripts/validate-sbom.ts",
@@ -216,6 +218,8 @@
   },
   "lint-staged": {
     "*.ts": [
+      "bun scripts/sort-imports.ts",
+      "bun scripts/check-conventions.ts",
       "eslint --fix",
       "prettier --write"
     ],

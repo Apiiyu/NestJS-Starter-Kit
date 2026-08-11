@@ -1,9 +1,15 @@
 // DTOs
 import { CreateUserDto } from './create-user.dto';
 
-// NestJS Libraries
+// Swagger
 import { OmitType, PartialType } from '@nestjs/swagger';
 
+/**
+ * @description Every creatable user field, each one optional.
+ *
+ * Built with `PartialType` so a field added to `CreateUserDto` becomes updatable automatically
+ * rather than being silently unsupported until someone notices.
+ */
 export class UpdateUserDto extends PartialType(CreateUserDto) {}
 
 /**

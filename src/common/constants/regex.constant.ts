@@ -1,8 +1,31 @@
+/*
+ * The six lookaheads below are the pieces `REGEX_PASSWORD` was once assembled from at runtime.
+ * They are kept as named parts so a project built on this kit can compose a different policy
+ * — a stricter one for admin passwords, say — without rewriting the lookahead syntax by hand
+ * and getting it subtly wrong.
+ */
+
+/** @description Asserts the string contains at least one uppercase letter. */
 export const REGEX_UPPERCASE = /(?=.*[A-Z])/;
+
+/** @description Asserts the string contains at least one lowercase letter. */
 export const REGEX_LOWERCASE = /(?=.*[a-z])/;
+
+/** @description Asserts the string contains at least one digit. */
 export const REGEX_DIGIT = /(?=.*\d)/;
+
+/** @description Asserts the string contains at least one non-word character. */
 export const REGEX_SPECIAL_CHAR = /(?=.*\W)/;
+
+/**
+ * @description Asserts the string does not begin with a period or a line break.
+ *
+ * First position only — it says nothing about the rest of the string. `REGEX_PASSWORD` uses
+ * `[^\r\n]+` instead, which is what this rule was reaching for.
+ */
 export const REGEX_NO_PERIOD_OR_NEWLINE = /^(?![.\n])/;
+
+/** @description Matches the remainder of the string, used to terminate a composed pattern. */
 export const REGEX_ANY_CHAR = /.*$/;
 
 /**
@@ -27,11 +50,14 @@ export const REGEX_ANY_CHAR = /.*$/;
 export const REGEX_PASSWORD = /^(?=.*[A-Z])(?=.*[a-z])(?=.*[\d\W])[^\r\n]+$/;
 
 /**
+ * @description Longest password the API accepts.
+ *
  * bcrypt hashes at most 72 bytes and silently ignores everything past that — two
  * passwords sharing their first 72 bytes verify against each other. Capping the input
  * keeps that truncation from turning into an accidental credential collision.
  */
 export const PASSWORD_MAX_LENGTH = 72;
 
-/** NIST SP 800-63B's floor for a user-chosen secret. */
+/** @description Shortest password the API accepts — NIST SP 800-63B's floor for a
+ * user-chosen secret. */
 export const PASSWORD_MIN_LENGTH = 8;

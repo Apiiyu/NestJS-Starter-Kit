@@ -1,4 +1,4 @@
-import { ApiProperty } from '@nestjs/swagger';
+// Class Validator
 import { IsEmail, IsNotEmpty, IsString, Matches, MaxLength, MinLength } from 'class-validator';
 
 // Constants
@@ -8,6 +8,16 @@ import {
   REGEX_PASSWORD,
 } from '../../../common/constants/regex.constant';
 
+// Swagger
+import { ApiProperty } from '@nestjs/swagger';
+
+/**
+ * @description What an administrative user-creation request must supply.
+ *
+ * Distinct from `RegisterEmailDto` even though the fields currently coincide: the two describe
+ * different flows, and they diverge the moment one of them gains a field the other must not
+ * accept — a role, say, which a self-registering user may never choose for themselves.
+ */
 export class CreateUserDto {
   @ApiProperty()
   @IsNotEmpty()

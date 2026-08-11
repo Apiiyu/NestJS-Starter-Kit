@@ -1,10 +1,18 @@
 // NestJS Libraries
 import { Controller, Get, VERSION_NEUTRAL } from '@nestjs/common';
+
+// Swagger
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 
 // Terminus
 import { HealthCheck, HealthCheckService, TypeOrmHealthIndicator } from '@nestjs/terminus';
 
+/**
+ * @description Exposes the liveness and readiness probes an orchestrator polls.
+ *
+ * `VERSION_NEUTRAL` on purpose: probe URLs are configured in deployment manifests, and moving
+ * them under `/v1` would break every existing manifest the day a second API version ships.
+ */
 @ApiTags('Health')
 @Controller({ path: 'health', version: VERSION_NEUTRAL })
 export class HealthController {
@@ -13,6 +21,13 @@ export class HealthController {
     private readonly _db: TypeOrmHealthIndicator,
   ) {}
 
+  /**
+   * @description Alias for the readiness probe, so `/health` on its own answers something
+   * useful.
+   *
+   * Delegates rather than duplicating: two probes that could drift apart would eventually
+   * disagree about whether the service is ready, and each would have half the traffic.
+   */
   @Get()
   @HealthCheck()
   @ApiOperation({
@@ -21,6 +36,28 @@ export class HealthController {
   })
   public check() {
     return this.ready();
+  }
+
+  /**
+   * @description Reports that the process is up, checking no dependency.
+   *
+   * Deliberately shallow. A liveness probe that touched the database would have the orchestrator
+   * restart every replica during a database outage — turning a recoverable incident into a
+   * restart loop that guarantees no replica is ready when the database returns.
+   */
+  @Get('live')
+  @ApiOperation({
+    summary: 'Check process liveness',
+    description: 'Reports whether the application process is running and accepting requests.',
+  })
+  public live() {
+    return {
+      message: 'Service is live',
+      result: {
+        status: 'ok',
+        timestamp: new Date().toISOString(),
+      },
+    };
   }
 
   /**
@@ -46,20 +83,5 @@ export class HealthController {
     const result = await this._health.check([() => this._db.pingCheck('database')]);
 
     return { message: 'Service is healthy', result };
-  }
-
-  @Get('live')
-  @ApiOperation({
-    summary: 'Check process liveness',
-    description: 'Reports whether the application process is running and accepting requests.',
-  })
-  public live() {
-    return {
-      message: 'Service is live',
-      result: {
-        status: 'ok',
-        timestamp: new Date().toISOString(),
-      },
-    };
   }
 }

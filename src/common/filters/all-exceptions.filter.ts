@@ -4,31 +4,15 @@ import { ERROR_CODE, ERROR_CODE_BY_STATUS } from '../constants/error-code.consta
 // Express
 import type { Request, Response } from 'express';
 
+// Interfaces
+import type { IErrorResponse } from '../interfaces/response.interface';
+
 // NestJS Libraries
 import type { ArgumentsHost, ExceptionFilter } from '@nestjs/common';
 import { Catch, HttpException, HttpStatus, Logger } from '@nestjs/common';
 
 // Services
 import { RequestContextService } from '../request-context/request-context.service';
-
-/**
- * @description Shape returned for every failed request.
- *
- * The first three fields deliberately mirror `BaseResponseDto`, which wraps every
- * successful response. Before this filter existed the two halves of the API
- * disagreed: success came back as `{ statusCode, message, data }` while errors fell
- * through to Nest's default `{ statusCode, message, error }`, so a client had to
- * implement two parsers for one endpoint.
- */
-export interface IErrorResponse {
-  statusCode: number;
-  message: string;
-  data: null;
-  errorCode: string;
-  path: string;
-  timestamp: string;
-  requestId?: string;
-}
 
 /**
  * @description Catches everything thrown out of a request — `HttpException` and
@@ -95,6 +79,16 @@ export class AllExceptionsFilter implements ExceptionFilter {
     return ERROR_CODE_BY_STATUS.get(status) ?? ERROR_CODE.INTERNAL_ERROR;
   }
 
+  /**
+   * @description Renders any thrown value into the single error contract and sends it.
+   *
+   * An unexpected error is logged with its stack but reported to the client as a generic 500 —
+   * the message of a `TypeError` from deep in a service tells an attacker about internals and
+   * tells a legitimate client nothing it can act on.
+   *
+   * @param exception Whatever was thrown: an `HttpException`, an `Error`, or neither.
+   * @param host The arguments host, used to reach the request and response.
+   */
   public catch(exception: unknown, host: ArgumentsHost): void {
     const context = host.switchToHttp();
     const request = context.getRequest<Request>();
