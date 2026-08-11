@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.0](https://github.com/Apiiyu/NestJS-Starter-Kit/compare/v1.0.0...v1.1.0) (2026-08-11)
+
+
+### Features
+
+* **conventions:** gate JSDoc, import grouping, and member order across src ([901d709](https://github.com/Apiiyu/NestJS-Starter-Kit/commit/901d70933ba874f693d37f0c736969991414f1c3))
+
 ## 1.0.0 (2026-08-05)
 
 
